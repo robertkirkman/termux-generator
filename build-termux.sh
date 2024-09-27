@@ -24,16 +24,20 @@ unset split_package_name
 
 ./clean.sh
 
-PLAY_STORE_TERMUX_PACKAGES_GIT_HASH=a41fd427b94dda5724edf9e1e1f5278fc6e7453e
-PLAY_STORE_TERMUX_APPS_GIT_HASH=63dd74e8c5c2bbb8ee28d82e7eb0874902786849
-PLAY_STORE_TERMUX_PACKAGES_SHA256SUM=0e5045009ac752ed30a137ffc522090880583e8ca4c969e51db7b62809701e9c
-PLAY_STORE_TERMUX_APPS_SHA256SUM=760a0ebc90746d244e73dd5e635e0900d5b855f72e284837fdfb9f5e67bc498e
+# Version originally tested
+# PLAY_STORE_TERMUX_PACKAGES_GIT_HASH=a41fd427b94dda5724edf9e1e1f5278fc6e7453e
+# PLAY_STORE_TERMUX_APPS_GIT_HASH=63dd74e8c5c2bbb8ee28d82e7eb0874902786849
+# PLAY_STORE_TERMUX_PACKAGES_SHA256SUM=0e5045009ac752ed30a137ffc522090880583e8ca4c969e51db7b62809701e9c
+# PLAY_STORE_TERMUX_APPS_SHA256SUM=760a0ebc90746d244e73dd5e635e0900d5b855f72e284837fdfb9f5e67bc498e
 
-wget -nc https://github.com/termux-play-store/termux-apps/archive/$PLAY_STORE_TERMUX_APPS_GIT_HASH.zip || exit 3
-wget -nc https://github.com/termux-play-store/termux-packages/archive/$PLAY_STORE_TERMUX_PACKAGES_GIT_HASH.zip || exit 4
+# wget -nc https://github.com/termux-play-store/termux-apps/archive/$PLAY_STORE_TERMUX_APPS_GIT_HASH.zip || exit 3
+# wget -nc https://github.com/termux-play-store/termux-packages/archive/$PLAY_STORE_TERMUX_PACKAGES_GIT_HASH.zip || exit 4
 
-echo "$PLAY_STORE_TERMUX_PACKAGES_SHA256SUM $PLAY_STORE_TERMUX_PACKAGES_GIT_HASH.zip" | sha256sum --check --status || exit 5
-echo "$PLAY_STORE_TERMUX_APPS_SHA256SUM $PLAY_STORE_TERMUX_APPS_GIT_HASH.zip" | sha256sum --check --status || exit 6
+# echo "$PLAY_STORE_TERMUX_PACKAGES_SHA256SUM $PLAY_STORE_TERMUX_PACKAGES_GIT_HASH.zip" | sha256sum --check --status || exit 5
+# echo "$PLAY_STORE_TERMUX_APPS_SHA256SUM $PLAY_STORE_TERMUX_APPS_GIT_HASH.zip" | sha256sum --check --status || exit 6
+
+wget -nc https://github.com/termux-play-store/termux-apps/archive/main.zip || exit 3
+wget -nc https://github.com/termux-play-store/termux-packages/archive/main.zip || exit 4
 
 unzip "*.zip" || exit 7
 
