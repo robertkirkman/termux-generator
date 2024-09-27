@@ -6,6 +6,7 @@ This script builds a vanilla [termux-play-store/termux-apps/termux-app](https://
 
 - Docker
 - Android SDK
+- OpenJDK 17
 - wget
 - unzip
 - patch
@@ -13,7 +14,7 @@ This script builds a vanilla [termux-play-store/termux-apps/termux-app](https://
 ### Example
 
 ```bash
-sudo apt install -y docker.io android-sdk wget unzip patch
+sudo apt install -y docker.io android-sdk openjdk-17-jdk wget unzip patch
 sudo usermod -aG docker $(whoami)
 ```
 
