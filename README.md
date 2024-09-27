@@ -1,6 +1,6 @@
 # termux-generator
 
-This script builds a vanilla [termux-play-store/termux-apps/termux-app](https://github.com/termux-play-store/termux-apps/tree/main/termux-app) from source at a September 27th 2024 snapshot, but allows changing the package name from `com.termux` to anything else with a single command.
+This script builds a vanilla [termux-play-store/termux-apps/termux-app](https://github.com/termux-play-store/termux-apps/tree/main/termux-app) from source, but allows changing the package name from `com.termux` to anything else with a single command.
 
 ### Dependencies
 
