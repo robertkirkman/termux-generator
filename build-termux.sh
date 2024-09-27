@@ -66,7 +66,7 @@ find . -type f -exec sed -i -e "s/>Termux</>$PACKAGE_NAME</g" \
 
 move_termux_folder() {
     COM_FOLDER="$1"/..
-    cd "${COM_FOLDER}"
+    cd "${COM_FOLDER}"/..
     for folder in ${PACKAGE_NAME_ARRAY[@]}
     do
         mkdir $folder
