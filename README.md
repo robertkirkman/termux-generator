@@ -13,7 +13,7 @@ This script builds a vanilla [termux-play-store/termux-apps/termux-app](https://
 ### Example (Ubuntu 24.04)
 
 ```bash
-sudo apt install docker.io android-sdk wget unzip patch
+sudo apt install -y docker.io android-sdk wget unzip patch
 wget https://github.com/robertkirkman/termux-generator/archive/refs/heads/main.zip
 unzip termux-generator-main.zip
 cd termux-generator-main
