@@ -1,0 +1,6 @@
+*
+!*/
+
+!.gitignore
+!termux-play-store-packages-name-change-helper.patch
+!build-termux.sh
