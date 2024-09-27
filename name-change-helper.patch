@@ -1,0 +1,18 @@
+diff --git a/packages/termux-tools/build.sh b/packages/termux-tools/build.sh
+index 377166bf0..4574dbc6c 100644
+--- a/packages/termux-tools/build.sh
++++ b/packages/termux-tools/build.sh
+@@ -19,5 +19,13 @@ TERMUX_PKG_DEPENDS="coreutils, curl, dash, diffutils, findutils, gawk, grep, les
+ TERMUX_PKG_RECOMMENDS="ed, dos2unix, inetutils, net-tools, patch, unzip"
+ 
+ termux_step_pre_configure() {
++	find . -type f -print0 | xargs -0 sed -i "s/com.termux/$TERMUX_APP_PACKAGE/g"
++	echo "Welcome to $TERMUX_APP_PACKAGE!
++This is a fork of termux-play-store!
++Do not report issues with this build upstream!
++========= Donate Here ===========
++https://www.patreon.com/termux
++https://opencollective.com/termux
++=================================" > motds/motd
+ 	autoreconf -vfi
+ }

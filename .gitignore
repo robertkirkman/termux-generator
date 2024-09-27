@@ -2,5 +2,8 @@
 !*/
 
 !.gitignore
-!termux-play-store-packages-name-change-helper.patch
+!name-change-helper.patch
+!local-bootstraps.patch
 !build-termux.sh
+!clean.sh
+!README.md
