@@ -15,7 +15,7 @@ This script builds a vanilla [termux-play-store/termux-apps/termux-app](https://
 ```bash
 sudo apt install -y docker.io android-sdk wget unzip patch
 wget https://github.com/robertkirkman/termux-generator/archive/refs/heads/main.zip
-unzip termux-generator-main.zip
+unzip main.zip
 cd termux-generator-main
 ./build-termux.sh a.copy.of.termux.in.a.different.folder
 ```
