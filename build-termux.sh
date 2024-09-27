@@ -36,8 +36,8 @@ unset split_package_name
 # echo "$PLAY_STORE_TERMUX_PACKAGES_SHA256SUM $PLAY_STORE_TERMUX_PACKAGES_GIT_HASH.zip" | sha256sum --check --status || exit 5
 # echo "$PLAY_STORE_TERMUX_APPS_SHA256SUM $PLAY_STORE_TERMUX_APPS_GIT_HASH.zip" | sha256sum --check --status || exit 6
 
-wget -nc https://github.com/termux-play-store/termux-apps/archive/main.zip || exit 3
-wget -nc https://github.com/termux-play-store/termux-packages/archive/main.zip || exit 4
+wget -nc https://github.com/termux-play-store/termux-apps/archive/main.zip -O termux-apps.zip || exit 3
+wget -nc https://github.com/termux-play-store/termux-packages/archive/main.zip -O termux-packages.zip || exit 4
 
 unzip "*.zip" || exit 7
 
