@@ -5,22 +5,30 @@ then
     echo "usage: $0 [custom.package.name]"
     exit 1
 fi
-PACKAGE_NAME=$1
-if [[ $PACKAGE_NAME =~ '_' ]] || [[ $PACKAGE_NAME =~ '-' ]] 
+export PACKAGE_NAME=$1
+if [[ $PACKAGE_NAME =~ '_' ]] || \
+   [[ $PACKAGE_NAME =~ '-' ]] || \
+   [[ $PACKAGE_NAME == package ]] || \
+   [[ $PACKAGE_NAME == package.* ]] || \
+   [[ $PACKAGE_NAME == *.package ]] || \
+   [[ $PACKAGE_NAME == *.package.* ]] || \
+   [[ $PACKAGE_NAME == in ]] || \
+   [[ $PACKAGE_NAME == in.* ]] || \
+   [[ $PACKAGE_NAME == *.in ]] || \
+   [[ $PACKAGE_NAME == *.in.* ]] || \
+   [[ $PACKAGE_NAME == is ]] || \
+   [[ $PACKAGE_NAME == is.* ]] || \
+   [[ $PACKAGE_NAME == *.is ]] || \
+   [[ $PACKAGE_NAME == *.is.* ]] || \
+   [[ $PACKAGE_NAME == as ]] || \
+   [[ $PACKAGE_NAME == as.* ]] || \
+   [[ $PACKAGE_NAME == *.as ]] || \
+   [[ $PACKAGE_NAME == *.as.* ]]
 then
-    echo "package name must not contain underscore, dash, or possibly other characters!"
+    echo "package name must not contain certain strings and must not contain underscore, dash, or possibly other characters!"
     exit 2
 fi
 PACKAGE_NAME_UNDERSCORE=$(echo "$PACKAGE_NAME" | tr . _)
-PACKAGE_NAME_ARRAY=
-split_package_name() {
-    PACKAGE_NAME_INNER=$1
-    local -n PACKAGE_NAME_ARRAY_INNER=$2
-    IFS='.'
-    read -a PACKAGE_NAME_ARRAY <<< "$PACKAGE_NAME"
-}
-split_package_name PACKAGE_NAME PACKAGE_NAME_ARRAY
-unset split_package_name
 
 ./clean.sh
 
@@ -36,10 +44,10 @@ unset split_package_name
 # echo "$PLAY_STORE_TERMUX_PACKAGES_SHA256SUM $PLAY_STORE_TERMUX_PACKAGES_GIT_HASH.zip" | sha256sum --check --status || exit 5
 # echo "$PLAY_STORE_TERMUX_APPS_SHA256SUM $PLAY_STORE_TERMUX_APPS_GIT_HASH.zip" | sha256sum --check --status || exit 6
 
-wget -nc https://github.com/termux-play-store/termux-apps/archive/main.zip || exit 3
-mv main.zip termux-apps.zip
-wget -nc https://github.com/termux-play-store/termux-packages/archive/main.zip || exit 4
-mv main.zip termux-packages.zip
+#wget -nc https://github.com/termux-play-store/termux-apps/archive/main.zip || exit 3
+#mv main.zip termux-apps.zip
+#wget -nc https://github.com/termux-play-store/termux-packages/archive/main.zip || exit 4
+#mv main.zip termux-packages.zip
 
 unzip "*.zip" || exit 7
 
@@ -64,19 +72,34 @@ find . -type f -exec sed -i -e "s/>Termux</>$PACKAGE_NAME</g" \
                             -e "s/com\.termux/$PACKAGE_NAME/g" \
                             -e "s/com_termux/$PACKAGE_NAME_UNDERSCORE/g" {} \;
 
-move_termux_folder() {
-    COM_FOLDER="$1"/..
+migrate_termux_folder() {
+    COM_FOLDER="$(dirname "$1")"
+    PACKAGE_NAME=$2
+    
+    PACKAGE_NAME_ARRAY=
+    split_package_name() {
+        PACKAGE_NAME_INNER=$1
+        local -n PACKAGE_NAME_ARRAY_INNER=$2
+        IFS='.'
+        read -a PACKAGE_NAME_ARRAY_INNER <<< "$PACKAGE_NAME_INNER"
+    }
+    split_package_name "$PACKAGE_NAME" PACKAGE_NAME_ARRAY
+
     cd "${COM_FOLDER}"/..
     for folder in ${PACKAGE_NAME_ARRAY[@]}
     do
+        echo "migrate_termux_folder: creating $(pwd)/$folder"
         mkdir -p $folder
         cd $folder
     done
+    echo "migrate_termux_folder: renaming ${COM_FOLDER}/termux to $(pwd)"
     mv "${COM_FOLDER}"/termux/* .
     rm -r "${COM_FOLDER}"/termux/
 }
-find . -type d -name termux -exec move_termux_folder {} \;
-unset move_termux_folder
+export -f migrate_termux_folder
+
+find $(pwd) -type d -name termux -exec bash -c 'migrate_termux_folder "$0" $(echo $PACKAGE_NAME)' {} \; 2>/dev/null
+unset migrate_termux_folder PACKAGE_NAME
 
 ./gradlew assembleDebug || exit 15
 
