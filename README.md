@@ -14,12 +14,14 @@ This script builds a vanilla [termux-play-store/termux-apps/termux-app](https://
 ### Example
 
 ```bash
-sudo apt install -y docker.io android-sdk openjdk-17-jdk wget unzip patch
+sudo apt install -y docker.io android-sdk sdkmanager openjdk-17-jdk wget unzip patch
 sudo usermod -aG docker $(whoami)
-echo "export ANDROID_SDK_HOME=/usr/lib/android-sdk" >> ~/.bashrc && . ~/.bashrc
+echo "export ANDROID_SDK_ROOTE=/usr/lib/android-sdk" >> ~/.bashrc && . ~/.bashrc
+sudo chown -R $(whoami) $ANDROID_SDK_ROOT
+yes | sdkmanager --licenses
 ```
 
-- Restart your computer or otherwise apply the group change (for me, logging out and logging in was actually insufficient on Ubuntu 20.04)
+- Restart your computer or otherwise apply the group change (for me, logging out and logging in was insufficient on Ubuntu 22.04)
 ```bash
 sudo reboot
 ```
