@@ -27,7 +27,7 @@ sudo reboot
 wget https://github.com/robertkirkman/termux-generator/archive/refs/heads/main.zip
 unzip main.zip
 cd termux-generator-main
-./build-termux.sh a.copy.of.termux.in.a.different.folder
+./build-termux.sh a.copy.of.termux.with.the.location.changed
 ```
 
 > [!IMPORTANT]
