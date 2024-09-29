@@ -16,7 +16,7 @@ This script builds a vanilla [termux-play-store/termux-apps/termux-app](https://
 ```bash
 sudo apt install -y docker.io android-sdk sdkmanager openjdk-17-jdk wget unzip patch
 sudo usermod -aG docker $(whoami)
-echo "export ANDROID_SDK_ROOTE=/usr/lib/android-sdk" >> ~/.bashrc && . ~/.bashrc
+echo "export ANDROID_SDK_ROOT=/usr/lib/android-sdk" >> ~/.bashrc && . ~/.bashrc
 sudo chown -R $(whoami) $ANDROID_SDK_ROOT
 yes | sdkmanager --licenses
 ```
