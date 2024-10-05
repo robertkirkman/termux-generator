@@ -21,17 +21,36 @@ sudo chown -R $(whoami) $ANDROID_SDK_ROOT
 yes | sdkmanager --licenses
 ```
 
-- Restart your computer or otherwise apply the group change (for me, logging out and logging in was insufficient on Ubuntu 22.04)
+- Restart your computer or otherwise apply the group change
+
+> [!NOTE]
+> For me, logging out and logging in was insufficient on Ubuntu 22.04
+
 ```bash
 sudo reboot
 ```
+
+> [!IMPORTANT]
+> Total time for Termux to compile entirely from source with:
+> - an AMD Ryzen 9 5950X
+> - running a server Linux distro 
+> - bare metal (no virtualization) 
+> - connected to 32 GB of RAM 
+> - and an NVMe SSD 
+> - with 80 GB of Swap 
+> - without the `--add` argument
+> - and no other intensive containers or services running: 
+> **1 hour**
+> Time to compile the below example with `--name` and `--add` on the same system:
+> **3 hours**
 
 ```bash
 wget https://github.com/robertkirkman/termux-generator/archive/refs/heads/main.zip
 unzip main.zip
 cd termux-generator-main
-./build-termux.sh a.copy.of.termux.with.the.location.changed
+./build-termux.sh --name a.copy.of.termux.with.the.location.changed \
+                  --add build-essential,cmake,python,proot-distro
 ```
 
 > [!IMPORTANT]
-> Running the command a second time will delete all the modified files and start over. Remove `clean.sh` or run commands manually if you are troubleshooting.
+> Running the command a second time will delete all the modified files and start over. Use `--dirty` if you are troubleshooting.

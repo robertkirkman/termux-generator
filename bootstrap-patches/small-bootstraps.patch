@@ -1,0 +1,17 @@
+--- a/scripts/generate-bootstraps.sh
++++ b/scripts/generate-bootstraps.sh
+@@ -287,7 +287,13 @@ create_bootstrap_archive() {
+ 			rm -f "$link"
+ 		done < <(find . -type l -print0)
+ 
+-		zip -r9 "${BOOTSTRAP_TMPDIR}/bootstrap-${1}.zip" ./*
++		# in some cases this can be approximately 4% real-world size reduction of bootstrap
++		# compared to using zip command
++		# I observed a real 7.6 GB bootstrap containing entirely termux packages
++		# reduce to 7.3 GB when rezipped this way.
++		sudo apt-get update
++		sudo apt-get install -y p7zip-full
++		7z a "${BOOTSTRAP_TMPDIR}/bootstrap-${1}.zip" ./* -mfb=258 -mpass=15
+ 	)
+ 
+ 	mv -f "${BOOTSTRAP_TMPDIR}/bootstrap-${1}.zip" ./

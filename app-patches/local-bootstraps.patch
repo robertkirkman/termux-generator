@@ -1,8 +1,48 @@
-diff --git a/termux-app/build.gradle.kts b/termux-app/build.gradle.kts
-index 543c0e2c..757efeaa 100644
 --- a/termux-app/build.gradle.kts
 +++ b/termux-app/build.gradle.kts
-@@ -112,77 +112,6 @@ task("versionName") {
+@@ -36,16 +36,6 @@ android {
+         minSdk = minSdkVersion.toInt()
+         targetSdk = targetSdkVersion.toInt()
+         compileSdk = compileSdkVersion.toInt()
+-
+-        ndk {
+-            abiFilters += listOf("arm64-v8a", "x86_64")
+-        }
+-
+-        externalNativeBuild {
+-            ndkBuild {
+-                cFlags += listOf("-std=c11", "-Wall", "-Wextra", "-Werror", "-Os", "-fno-stack-protector", "-Wl,--gc-sections")
+-            }
+-        }
+     }
+ 
+     signingConfigs {
+@@ -78,24 +68,12 @@ android {
+         targetCompatibility = JavaVersion.VERSION_11
+     }
+ 
+-    externalNativeBuild {
+-        ndkBuild {
+-            path = File("src/main/cpp/Android.mk")
+-        }
+-    }
+-
+     testOptions {
+         unitTests {
+             isIncludeAndroidResources = true
+         }
+     }
+ 
+-    packaging {
+-        jniLibs {
+-            useLegacyPackaging = true
+-        }
+-    }
+-
+     lint {
+         warningsAsErrors = true
+     }
+@@ -112,77 +90,6 @@ task("versionName") {
      }
  }
  
@@ -80,3 +120,51 @@ index 543c0e2c..757efeaa 100644
  // https://stackoverflow.com/questions/75274720/a-failure-occurred-while-executing-appcheckdebugduplicateclasses/
  configurations.implementation {
     exclude("org.jetbrains.kotlin", "kotlin-stdlib-jdk8")
+--- a/termux-app/src/main/java/com/termux/app/TermuxInstaller.java
++++ b/termux-app/src/main/java/com/termux/app/TermuxInstaller.java
+@@ -4,6 +4,7 @@ import android.app.Activity;
+ import android.app.AlertDialog;
+ import android.app.ProgressDialog;
+ import android.content.Context;
++import android.content.res.AssetManager;
+ import android.content.Intent;
+ import android.content.pm.ApplicationInfo;
+ import android.os.Environment;
+@@ -23,6 +25,7 @@ import java.io.ByteArrayInputStream;
+ import java.io.File;
+ import java.io.FileOutputStream;
+ import java.io.IOException;
++import java.io.InputStream;
+ import java.io.InputStreamReader;
+ import java.nio.file.Files;
+ import java.util.ArrayList;
+@@ -102,9 +105,12 @@ final class TermuxInstaller {
+ 
+                 final byte[] buffer = new byte[8096];
+                 final List<Pair<String, String>> symlinks = new ArrayList<>(50);
++                AssetManager assetManager = activity.getApplicationContext().getAssets();
++                String architecture = System.getProperty("os.arch");
++                String bootstrapFilename = "bootstrap-" + architecture + ".zip";
++                InputStream inputStream = assetManager.open(bootstrapFilename);
+ 
+-                final byte[] zipBytes = loadZipBytes();
+-                try (ZipInputStream zipInput = new ZipInputStream(new ByteArrayInputStream(zipBytes))) {
++                try (ZipInputStream zipInput = new ZipInputStream(inputStream)) {
+                     ZipEntry zipEntry;
+                     while ((zipEntry = zipInput.getNextEntry()) != null) {
+                         if (zipEntry.getName().equals("SYMLINKS.txt")) {
+@@ -303,14 +309,6 @@ final class TermuxInstaller {
+         return dir.delete();
+     }
+ 
+-    public static byte[] loadZipBytes() {
+-        // Only load the shared library when necessary to save memory usage.
+-        System.loadLibrary("termux-bootstrap");
+-        return getZip();
+-    }
+-
+-    public static native byte[] getZip();
+-
+     public static void setupAppLibSymlink(Context context) {
+         var nativeLibraryDir = context.getApplicationInfo().nativeLibraryDir;
+         var targetFile = new File(TermuxConstants.APP_LIB_PATH);
