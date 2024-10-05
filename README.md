@@ -40,8 +40,11 @@ sudo reboot
 > - with 80 GB of Swap 
 > - without the `--add` argument
 > - and no other intensive containers or services running: 
+> 
 > **1 hour**
+> 
 > Time to compile the below example with `--name` and `--add` on the same system:
+> 
 > **3 hours**
 
 ```bash
