@@ -1,0 +1,3244 @@
+diff --git a/packages/openjdk-17/0001-libnet-check-__ANDROID__-instead-of-ANDROID.patch b/packages/openjdk-17/0001-libnet-check-__ANDROID__-instead-of-ANDROID.patch
+new file mode 100644
+index 000000000..ff6b419b6
+--- /dev/null
++++ b/packages/openjdk-17/0001-libnet-check-__ANDROID__-instead-of-ANDROID.patch
+@@ -0,0 +1,25 @@
++From 98230fdd4734f1b4e72bbe44c91ed22e97dd719b Mon Sep 17 00:00:00 2001
++From: Henrik Grimler <grimler@termux.dev>
++Date: Sat, 4 Feb 2023 15:44:56 +0100
++Subject: [PATCH] libnet: check __ANDROID__ instead of ANDROID
++
++---
++ src/java.base/unix/native/libnet/net_util_md.h | 2 +-
++ 1 file changed, 1 insertion(+), 1 deletion(-)
++
++diff --git a/src/java.base/unix/native/libnet/net_util_md.h b/src/java.base/unix/native/libnet/net_util_md.h
++index eafd4509ec39..986892f209ad 100644
++--- a/src/java.base/unix/native/libnet/net_util_md.h
+++++ b/src/java.base/unix/native/libnet/net_util_md.h
++@@ -26,7 +26,7 @@
++ #ifndef NET_UTILS_MD_H
++ #define NET_UTILS_MD_H
++ 
++-#ifdef ANDROID
+++#ifdef __ANDROID__
++ #include <netinet/in.h>
++ #endif
++ #include <netdb.h>
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0002-os_linux-add-android-checks-and-fixes.patch b/packages/openjdk-17/0002-os_linux-add-android-checks-and-fixes.patch
+new file mode 100644
+index 000000000..a7ed2717c
+--- /dev/null
++++ b/packages/openjdk-17/0002-os_linux-add-android-checks-and-fixes.patch
+@@ -0,0 +1,43 @@
++From 5398fe8adfa82d34f801f7861968ca2d6495fdc4 Mon Sep 17 00:00:00 2001
++From: Duy Tran Khanh <40482367+khanhduytran0@users.noreply.github.com>
++Date: Sun, 6 Jun 2021 20:11:11 +0700
++Subject: [PATCH] os_linux: add android checks and fixes
++
++---
++ src/hotspot/os/linux/os_linux.cpp | 6 +++++-
++ 1 file changed, 5 insertions(+), 1 deletion(-)
++
++diff --git a/src/hotspot/os/linux/os_linux.cpp b/src/hotspot/os/linux/os_linux.cpp
++index ae0c73dcb711..e8e66887cd5a 100644
++--- a/src/hotspot/os/linux/os_linux.cpp
+++++ b/src/hotspot/os/linux/os_linux.cpp
++@@ -132,7 +132,7 @@
++ // for timer info max values which include all bits
++ #define ALL_64_BITS CONST64(0xFFFFFFFFFFFFFFFF)
++ 
++-#ifdef MUSL_LIBC
+++#if defined(MUSL_LIBC) || defined(__ANDROID__)
++ // dlvsym is not a part of POSIX
++ // and musl libc doesn't implement it.
++ static void *dlvsym(void *handle,
++@@ -515,6 +515,7 @@ extern "C" void breakpoint() {
++ // detecting pthread library
++ 
++ void os::Linux::libpthread_init() {
+++#ifndef __ANDROID__
++   // Save glibc and pthread version strings.
++ #if !defined(_CS_GNU_LIBC_VERSION) || \
++     !defined(_CS_GNU_LIBPTHREAD_VERSION)
++@@ -539,6 +540,9 @@ void os::Linux::libpthread_init() {
++   confstr(_CS_GNU_LIBPTHREAD_VERSION, str, n);
++   os::Linux::set_libpthread_version(str);
++ #endif
+++#else
+++  os::Linux::set_libpthread_version("NPTL");
+++#endif
++ }
++ 
++ /////////////////////////////////////////////////////////////////////////////
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0003-Define-sys-gettid-on-arm-and-aarch64.patch b/packages/openjdk-17/0003-Define-sys-gettid-on-arm-and-aarch64.patch
+new file mode 100644
+index 000000000..990bc8237
+--- /dev/null
++++ b/packages/openjdk-17/0003-Define-sys-gettid-on-arm-and-aarch64.patch
+@@ -0,0 +1,39 @@
++From b04c40ca7b8a3c6cb29d9e0e965ec592148327a2 Mon Sep 17 00:00:00 2001
++From: Duy Tran Khanh <40482367+khanhduytran0@users.noreply.github.com>
++Date: Mon, 7 Jun 2021 06:27:26 +0700
++Subject: [PATCH] Define sys gettid on arm and aarch64
++
++---
++ src/hotspot/os/linux/os_linux.cpp | 6 ++++--
++ 1 file changed, 4 insertions(+), 2 deletions(-)
++
++diff --git a/src/hotspot/os/linux/os_linux.cpp b/src/hotspot/os/linux/os_linux.cpp
++index e8e66887cd5a..08b27d2dbe22 100644
++--- a/src/hotspot/os/linux/os_linux.cpp
+++++ b/src/hotspot/os/linux/os_linux.cpp
++@@ -322,11 +322,11 @@ bool os::have_special_privileges() {
++ 
++ 
++ #ifndef SYS_gettid
++-// i386: 224, ia64: 1105, amd64: 186, sparc: 143
+++// i386 & arm: 224, ia64: 1105, amd64: 186, sparc: 143, aarch64: 178
++   #ifdef __ia64__
++     #define SYS_gettid 1105
++   #else
++-    #ifdef __i386__
+++    #if defined(__i386__) || defined(__arm__)
++       #define SYS_gettid 224
++     #else
++       #ifdef __amd64__
++@@ -334,6 +334,8 @@ bool os::have_special_privileges() {
++       #else
++         #ifdef __sparc__
++           #define SYS_gettid 143
+++        #elif defined(__arm64__) || defined(__aarch64__)
+++          #define SYS_gettid 178
++         #else
++           #error define gettid for the arch
++         #endif
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0004-Disable-posix-print-uptime-overridden-by-linux.patch b/packages/openjdk-17/0004-Disable-posix-print-uptime-overridden-by-linux.patch
+new file mode 100644
+index 000000000..81756ed3b
+--- /dev/null
++++ b/packages/openjdk-17/0004-Disable-posix-print-uptime-overridden-by-linux.patch
+@@ -0,0 +1,42 @@
++From 2e669f0d90683894bc153351cae0ca20f83770dc Mon Sep 17 00:00:00 2001
++From: Duy Tran Khanh <40482367+khanhduytran0@users.noreply.github.com>
++Date: Mon, 7 Jun 2021 08:05:09 +0700
++Subject: [PATCH] Disable posix print uptime (overridden by linux!)
++
++---
++ src/hotspot/os/posix/os_posix.cpp | 4 ++++
++ 1 file changed, 4 insertions(+)
++
++diff --git a/src/hotspot/os/posix/os_posix.cpp b/src/hotspot/os/posix/os_posix.cpp
++index ae058dd345b8..ea99a3755b9a 100644
++--- a/src/hotspot/os/posix/os_posix.cpp
+++++ b/src/hotspot/os/posix/os_posix.cpp
++@@ -65,7 +65,9 @@
++ #include <sys/wait.h>
++ #include <time.h>
++ #include <unistd.h>
+++#ifndef __ANDROID__
++ #include <utmpx.h>
+++#endif
++ 
++ #ifdef __APPLE__
++   #include <crt_externs.h>
++@@ -418,6 +420,7 @@ void os::Posix::print_load_average(outputStream* st) {
++ // unfortunately it does not work on macOS and Linux because the utx chain has no entry
++ // for reboot at least on my test machines
++ void os::Posix::print_uptime_info(outputStream* st) {
+++#ifndef __ANDROID__
++   int bootsec = -1;
++   int currsec = time(NULL);
++   struct utmpx* ent;
++@@ -432,6 +435,7 @@ void os::Posix::print_uptime_info(outputStream* st) {
++   if (bootsec != -1) {
++     os::print_dhm(st, "OS uptime:", (long) (currsec-bootsec));
++   }
+++#endif
++ }
++ 
++ static void print_rlimit(outputStream* st, const char* msg,
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0005-android-prevent-build-of-libjsound-and-libsa.patch b/packages/openjdk-17/0005-android-prevent-build-of-libjsound-and-libsa.patch
+new file mode 100644
+index 000000000..936ef94bc
+--- /dev/null
++++ b/packages/openjdk-17/0005-android-prevent-build-of-libjsound-and-libsa.patch
+@@ -0,0 +1,37 @@
++From b71d08af5c67c9bee2bb025f310b1c3fdef9ebc4 Mon Sep 17 00:00:00 2001
++From: Henrik Grimler <grimler@termux.dev>
++Date: Fri, 3 Feb 2023 11:06:24 +0100
++Subject: [PATCH] android: prevent build of libjsound and libsa
++
++---
++ make/modules/java.desktop/Lib.gmk      | 2 --
++ make/modules/jdk.hotspot.agent/Lib.gmk | 2 --
++ 2 files changed, 4 deletions(-)
++
++diff --git a/make/modules/java.desktop/Lib.gmk b/make/modules/java.desktop/Lib.gmk
++index 22b07289adf7..4f1c8c735024 100644
++--- a/make/modules/java.desktop/Lib.gmk
+++++ b/make/modules/java.desktop/Lib.gmk
++@@ -76,8 +76,6 @@ ifeq ($(call isTargetOs, aix), false)
++ 
++   $(BUILD_LIBJSOUND): $(call FindLib, java.base, java)
++ 
++-  TARGETS += $(BUILD_LIBJSOUND)
++-
++ endif
++ 
++ ################################################################################
++diff --git a/make/modules/jdk.hotspot.agent/Lib.gmk b/make/modules/jdk.hotspot.agent/Lib.gmk
++index 59b24d0e4523..7bbd5e73ec2e 100644
++--- a/make/modules/jdk.hotspot.agent/Lib.gmk
+++++ b/make/modules/jdk.hotspot.agent/Lib.gmk
++@@ -74,6 +74,4 @@ $(eval $(call SetupJdkLibrary, BUILD_LIBSA, \
++     LIBS_windows := dbgeng.lib $(WIN_JAVA_LIB), \
++ ))
++ 
++-TARGETS += $(BUILD_LIBSA)
++-
++ ################################################################################
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0006-Link-against-system-libiconv.patch b/packages/openjdk-17/0006-Link-against-system-libiconv.patch
+new file mode 100644
+index 000000000..bccb86ea0
+--- /dev/null
++++ b/packages/openjdk-17/0006-Link-against-system-libiconv.patch
+@@ -0,0 +1,39 @@
++From 0e8ecf28408a9efae19ae58b63821c8fffb8792f Mon Sep 17 00:00:00 2001
++From: Henrik Grimler <grimler@termux.dev>
++Date: Fri, 3 Feb 2023 11:09:10 +0100
++Subject: [PATCH] Link against system libiconv
++
++---
++ make/modules/java.instrument/Lib.gmk | 2 +-
++ make/modules/jdk.jdwp.agent/Lib.gmk  | 2 +-
++ 2 files changed, 2 insertions(+), 2 deletions(-)
++
++diff --git a/make/modules/java.instrument/Lib.gmk b/make/modules/java.instrument/Lib.gmk
++index 3996ad213864..727f312da92a 100644
++--- a/make/modules/java.instrument/Lib.gmk
+++++ b/make/modules/java.instrument/Lib.gmk
++@@ -49,7 +49,7 @@ $(eval $(call SetupJdkLibrary, BUILD_LIBINSTRUMENT, \
++     LDFLAGS_aix := -L$(SUPPORT_OUTPUTDIR)/native/java.base, \
++     LIBS := $(JDKLIB_LIBS), \
++     LIBS_unix := -ljava -ljvm $(LIBZ_LIBS), \
++-    LIBS_linux := -ljli $(LIBDL), \
+++    LIBS_linux := -ljli -liconv $(LIBDL), \
++     LIBS_aix := -liconv -ljli_static $(LIBDL), \
++     LIBS_macosx := -ljli -liconv -framework Cocoa -framework Security \
++         -framework ApplicationServices, \
++diff --git a/make/modules/jdk.jdwp.agent/Lib.gmk b/make/modules/jdk.jdwp.agent/Lib.gmk
++index aef358c14bd5..fbc1750bc58a 100644
++--- a/make/modules/jdk.jdwp.agent/Lib.gmk
+++++ b/make/modules/jdk.jdwp.agent/Lib.gmk
++@@ -61,7 +61,7 @@ $(eval $(call SetupJdkLibrary, BUILD_LIBJDWP, \
++     LDFLAGS := $(LDFLAGS_JDKLIB) \
++         $(call SET_SHARED_LIBRARY_ORIGIN), \
++     LIBS := $(JDKLIB_LIBS), \
++-    LIBS_linux := $(LIBDL), \
+++    LIBS_linux := -liconv $(LIBDL), \
++     LIBS_macosx := -liconv, \
++     LIBS_aix := -liconv, \
++ ))
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0007-aarch64_get_thread_helper-Thread-current.patch b/packages/openjdk-17/0007-aarch64_get_thread_helper-Thread-current.patch
+new file mode 100644
+index 000000000..ea07059fc
+--- /dev/null
++++ b/packages/openjdk-17/0007-aarch64_get_thread_helper-Thread-current.patch
+@@ -0,0 +1,36 @@
++From ccce9502c1a3460f02d1edd101097fa54582f83d Mon Sep 17 00:00:00 2001
++From: Duy Tran Khanh <40482367+khanhduytran0@users.noreply.github.com>
++Date: Thu, 10 Jun 2021 08:45:16 +0700
++Subject: [PATCH] aarch64_get_thread_helper() -> Thread::current()
++
++Can't build for Android:
++
++src/hotspot/os_cpu/linux_aarch64/threadLS_linux_aarch64.S:37: undefined reference to `Thread::_thr_current'
++27560
++clang90++: error: linker command failed with exit code 1 (use -v to see invocation)
++---
++ .../os_cpu/linux_aarch64/thread_linux_aarch64.hpp        | 9 ++++++++-
++ 1 file changed, 8 insertions(+), 1 deletion(-)
++
++diff --git a/src/hotspot/os_cpu/linux_aarch64/thread_linux_aarch64.hpp b/src/hotspot/os_cpu/linux_aarch64/thread_linux_aarch64.hpp
++index 5a1f273c5486..88b6750dbff2 100644
++--- a/src/hotspot/os_cpu/linux_aarch64/thread_linux_aarch64.hpp
+++++ b/src/hotspot/os_cpu/linux_aarch64/thread_linux_aarch64.hpp
++@@ -47,6 +47,13 @@ private:
++   bool pd_get_top_frame(frame* fr_addr, void* ucontext, bool isInJava);
++ public:
++ 
++-  static Thread *aarch64_get_thread_helper();
+++  static Thread *aarch64_get_thread_helper()
+++#ifndef __ANDROID__
+++;
+++#else
+++  {
+++    return Thread::current();
+++  }
+++#endif
++ 
++ #endif // OS_CPU_LINUX_AARCH64_THREAD_LINUX_AARCH64_HPP
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0008-Remove-aarch64_get_thread_helper.patch b/packages/openjdk-17/0008-Remove-aarch64_get_thread_helper.patch
+new file mode 100644
+index 000000000..314a4bfe2
+--- /dev/null
++++ b/packages/openjdk-17/0008-Remove-aarch64_get_thread_helper.patch
+@@ -0,0 +1,31 @@
++From 572fd2a295de4237374166ee10773fcb412802c9 Mon Sep 17 00:00:00 2001
++From: Duy Tran Khanh <40482367+khanhduytran0@users.noreply.github.com>
++Date: Thu, 10 Jun 2021 08:46:35 +0700
++Subject: [PATCH] Remove aarch64_get_thread_helper()
++
++See commit 6f407090fda1 ("aarch64_get_thread_helper() ->
++Thread::current()") for more details.
++---
++ src/hotspot/os_cpu/linux_aarch64/threadLS_linux_aarch64.S | 2 ++
++ 1 file changed, 2 insertions(+)
++
++diff --git a/src/hotspot/os_cpu/linux_aarch64/threadLS_linux_aarch64.S b/src/hotspot/os_cpu/linux_aarch64/threadLS_linux_aarch64.S
++index f541844b9d6d..dd83b3723304 100644
++--- a/src/hotspot/os_cpu/linux_aarch64/threadLS_linux_aarch64.S
+++++ b/src/hotspot/os_cpu/linux_aarch64/threadLS_linux_aarch64.S
++@@ -19,6 +19,7 @@
++ // or visit www.oracle.com if you need additional information or have any
++ // questions.
++ 
+++#ifndef __ANDROID__
++         // JavaThread::aarch64_get_thread_helper()
++         //
++         // Return the current thread pointer in x0.
++@@ -42,3 +43,4 @@ _ZN10JavaThread25aarch64_get_thread_helperEv:
++ 	ret
++ 
++ 	.size _ZN10JavaThread25aarch64_get_thread_helperEv, .-_ZN10JavaThread25aarch64_get_thread_helperEv
+++#endif
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0009-Use-Android-s-strerror_r.patch b/packages/openjdk-17/0009-Use-Android-s-strerror_r.patch
+new file mode 100644
+index 000000000..0f158ee4d
+--- /dev/null
++++ b/packages/openjdk-17/0009-Use-Android-s-strerror_r.patch
+@@ -0,0 +1,30 @@
++From 335a23c80620e0f885ea4760dd8335d03a734c74 Mon Sep 17 00:00:00 2001
++From: Duy Tran Khanh <40482367+khanhduytran0@users.noreply.github.com>
++Date: Thu, 10 Jun 2021 09:36:26 +0700
++Subject: [PATCH] Use Android's strerror_r()
++
++---
++ src/java.base/unix/native/libjava/jni_util_md.c | 7 -------
++ 1 file changed, 7 deletions(-)
++
++diff --git a/src/java.base/unix/native/libjava/jni_util_md.c b/src/java.base/unix/native/libjava/jni_util_md.c
++index 460503cd794c..335637b0a115 100644
++--- a/src/java.base/unix/native/libjava/jni_util_md.c
+++++ b/src/java.base/unix/native/libjava/jni_util_md.c
++@@ -31,13 +31,6 @@
++ #include "jni_util.h"
++ #include "dlfcn.h"
++ 
++-#if defined(LINUX) && (defined(_GNU_SOURCE) || \
++-         (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE < 200112L \
++-             && defined(_XOPEN_SOURCE) && _XOPEN_SOURCE < 600))
++-extern int __xpg_strerror_r(int, char *, size_t);
++-#define strerror_r(a, b, c) __xpg_strerror_r((a), (b), (c))
++-#endif
++-
++ void* getProcessHandle() {
++     static void *procHandle = NULL;
++     if (procHandle != NULL) {
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0010-Use-utimensat-on-android.patch b/packages/openjdk-17/0010-Use-utimensat-on-android.patch
+new file mode 100644
+index 000000000..b44671ab4
+--- /dev/null
++++ b/packages/openjdk-17/0010-Use-utimensat-on-android.patch
+@@ -0,0 +1,85 @@
++From abb21f4753cbfb0a1639180eab2c0f48b93d06ee Mon Sep 17 00:00:00 2001
++From: Duy Tran Khanh <40482367+khanhduytran0@users.noreply.github.com>
++Date: Thu, 10 Jun 2021 16:42:56 +0700
++Subject: [PATCH] Use utimensat on android
++
++---
++ .../native/libnio/fs/UnixNativeDispatcher.c   | 22 ++++++++++++++-----
++ 1 file changed, 17 insertions(+), 5 deletions(-)
++
++diff --git a/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c b/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c
++index 9df8be1e62c2..3b886283778b 100644
++--- a/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c
+++++ b/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c
++@@ -140,6 +140,7 @@ typedef int fstatat64_func(int, const char *, struct stat64 *, int);
++ typedef int unlinkat_func(int, const char*, int);
++ typedef int renameat_func(int, const char*, int, const char*);
++ typedef int futimesat_func(int, const char *, const struct timeval *);
+++typedef int utimensat_func(int, const char *, const struct timespec *, int flags);
++ typedef int futimens_func(int, const struct timespec *);
++ typedef int lutimes_func(const char *, const struct timeval *);
++ typedef DIR* fdopendir_func(int);
++@@ -149,6 +150,7 @@ static fstatat64_func* my_fstatat64_func = NULL;
++ static unlinkat_func* my_unlinkat_func = NULL;
++ static renameat_func* my_renameat_func = NULL;
++ static futimesat_func* my_futimesat_func = NULL;
+++static utimensat_func* my_utimensat_func = NULL;
++ static futimens_func* my_futimens_func = NULL;
++ static lutimes_func* my_lutimes_func = NULL;
++ static fdopendir_func* my_fdopendir_func = NULL;
++@@ -272,6 +274,9 @@ Java_sun_nio_fs_UnixNativeDispatcher_init(JNIEnv* env, jclass this)
++ #ifndef _ALLBSD_SOURCE
++     my_futimesat_func = (futimesat_func*) dlsym(RTLD_DEFAULT, "futimesat");
++     my_lutimes_func = (lutimes_func*) dlsym(RTLD_DEFAULT, "lutimes");
+++#endif
+++#ifdef __ANDROID__
+++    my_utimensat_func = (utimensat_func*) dlsym(RTLD_DEFAULT, "utimensat");
++ #endif
++     my_futimens_func = (futimens_func*) dlsym(RTLD_DEFAULT, "futimens");
++ #if defined(_AIX)
++@@ -292,7 +297,7 @@ Java_sun_nio_fs_UnixNativeDispatcher_init(JNIEnv* env, jclass this)
++     capabilities |= sun_nio_fs_UnixNativeDispatcher_SUPPORTS_FUTIMES;
++     capabilities |= sun_nio_fs_UnixNativeDispatcher_SUPPORTS_LUTIMES;
++ #else
++-    if (my_futimesat_func != NULL)
+++    if (my_futimesat_func != NULL || my_utimensat_func != NULL)
++         capabilities |= sun_nio_fs_UnixNativeDispatcher_SUPPORTS_FUTIMES;
++     if (my_lutimes_func != NULL)
++         capabilities |= sun_nio_fs_UnixNativeDispatcher_SUPPORTS_LUTIMES;
++@@ -304,7 +309,7 @@ Java_sun_nio_fs_UnixNativeDispatcher_init(JNIEnv* env, jclass this)
++ 
++     if (my_openat64_func != NULL &&  my_fstatat64_func != NULL &&
++         my_unlinkat_func != NULL && my_renameat_func != NULL &&
++-        my_futimesat_func != NULL && my_fdopendir_func != NULL)
+++        (my_futimesat_func != NULL || my_utimensat_func != NULL) && my_fdopendir_func != NULL)
++     {
++         capabilities |= sun_nio_fs_UnixNativeDispatcher_SUPPORTS_OPENAT;
++     }
++@@ -697,14 +702,21 @@ Java_sun_nio_fs_UnixNativeDispatcher_futimes(JNIEnv* env, jclass this, jint file
++     times[1].tv_sec = modificationTime / 1000000;
++     times[1].tv_usec = modificationTime % 1000000;
++ 
+++    times[0].tv_nsec = (accessTime % 1000000) * 1000;
+++    times[1].tv_nsec = (modificationTime % 1000000) * 1000;
+++
++ #ifdef _ALLBSD_SOURCE
++     RESTARTABLE(futimes(filedes, &times[0]), err);
++ #else
++-    if (my_futimesat_func == NULL) {
++-        JNU_ThrowInternalError(env, "my_futimesat_func is NULL");
+++    if (my_futimesat_func == NULL && my_utimensat_func == NULL) {
+++        JNU_ThrowInternalError(env, "my_futimesat_func and my_utimensat_func are NULL");
++         return;
++     }
++-    RESTARTABLE((*my_futimesat_func)(filedes, NULL, &times[0]), err);
+++    if (my_futimesat_func != NULL) {
+++        RESTARTABLE((*my_futimesat_func)(filedes, NULL, &times[0]), err);
+++    } else {
+++        RESTARTABLE((*my_utimensat_func)(filedes, NULL, &times[0], 0), err);
+++    }
++ #endif
++     if (err == -1) {
++         throwUnixException(env, errno);
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0011-Fixed-Java_sun_nio_fs_UnixNativeDispatcher_futimes.patch b/packages/openjdk-17/0011-Fixed-Java_sun_nio_fs_UnixNativeDispatcher_futimes.patch
+new file mode 100644
+index 000000000..578145602
+--- /dev/null
++++ b/packages/openjdk-17/0011-Fixed-Java_sun_nio_fs_UnixNativeDispatcher_futimes.patch
+@@ -0,0 +1,47 @@
++From acda1bc8b7e6c37db76575a43e5b08db5f118378 Mon Sep 17 00:00:00 2001
++From: Duy Tran Khanh <40482367+khanhduytran0@users.noreply.github.com>
++Date: Thu, 10 Jun 2021 18:36:56 +0700
++Subject: [PATCH] Fixed Java_sun_nio_fs_UnixNativeDispatcher_futimes
++
++---
++ .../unix/native/libnio/fs/UnixNativeDispatcher.c      | 11 ++++++-----
++ 1 file changed, 6 insertions(+), 5 deletions(-)
++
++diff --git a/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c b/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c
++index 3b886283778b..a53b64bb81f0 100644
++--- a/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c
+++++ b/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c
++@@ -694,16 +694,17 @@ Java_sun_nio_fs_UnixNativeDispatcher_futimes(JNIEnv* env, jclass this, jint file
++     jlong accessTime, jlong modificationTime)
++ {
++     struct timeval times[2];
+++    struct timespec times2[2];
++     int err = 0;
++ 
++-    times[0].tv_sec = accessTime / 1000000;
+++    times[0].tv_sec = times2[0].tv_sec = accessTime / 1000000;
++     times[0].tv_usec = accessTime % 1000000;
++ 
++-    times[1].tv_sec = modificationTime / 1000000;
+++    times[1].tv_sec = times2[1].tv_sec = modificationTime / 1000000;
++     times[1].tv_usec = modificationTime % 1000000;
++ 
++-    times[0].tv_nsec = (accessTime % 1000000) * 1000;
++-    times[1].tv_nsec = (modificationTime % 1000000) * 1000;
+++    times2[0].tv_nsec = times[0].tv_usec * 1000;
+++    times2[1].tv_nsec = times[1].tv_usec * 1000;
++ 
++ #ifdef _ALLBSD_SOURCE
++     RESTARTABLE(futimes(filedes, &times[0]), err);
++@@ -715,7 +716,7 @@ Java_sun_nio_fs_UnixNativeDispatcher_futimes(JNIEnv* env, jclass this, jint file
++     if (my_futimesat_func != NULL) {
++         RESTARTABLE((*my_futimesat_func)(filedes, NULL, &times[0]), err);
++     } else {
++-        RESTARTABLE((*my_utimensat_func)(filedes, NULL, &times[0], 0), err);
+++        RESTARTABLE((*my_utimensat_func)(filedes, NULL, &times2[0], 0), err);
++     }
++ #endif
++     if (err == -1) {
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0012-Add-CXXFLAGS_JDKLIB-to-CXXFLAGS.patch b/packages/openjdk-17/0012-Add-CXXFLAGS_JDKLIB-to-CXXFLAGS.patch
+new file mode 100644
+index 000000000..9c88b845a
+--- /dev/null
++++ b/packages/openjdk-17/0012-Add-CXXFLAGS_JDKLIB-to-CXXFLAGS.patch
+@@ -0,0 +1,38 @@
++From 9408807ff72c61687625ac7e5d06618df29c4c39 Mon Sep 17 00:00:00 2001
++From: Duy Tran Khanh <40482367+khanhduytran0@users.noreply.github.com>
++Date: Thu, 10 Jun 2021 19:23:03 +0700
++Subject: [PATCH] Add CXXFLAGS_JDKLIB to CXXFLAGS
++
++For modules jdk.jdwp.agent and java.instrument.
++---
++ make/modules/java.instrument/Lib.gmk | 1 +
++ make/modules/jdk.jdwp.agent/Lib.gmk  | 1 +
++ 2 files changed, 2 insertions(+)
++
++diff --git a/make/modules/java.instrument/Lib.gmk b/make/modules/java.instrument/Lib.gmk
++index 727f312da92a..dd9bebe2e04b 100644
++--- a/make/modules/java.instrument/Lib.gmk
+++++ b/make/modules/java.instrument/Lib.gmk
++@@ -39,6 +39,7 @@ $(eval $(call SetupJdkLibrary, BUILD_LIBINSTRUMENT, \
++     CFLAGS := $(CFLAGS_JDKLIB) $(LIBINSTRUMENT_CFLAGS), \
++     CFLAGS_debug := -DJPLIS_LOGGING, \
++     CFLAGS_release := -DNO_JPLIS_LOGGING, \
+++    CXXFLAGS := $(CXXFLAGS_JDKLIB), \
++     DISABLED_WARNINGS_gcc := unused-function, \
++     EXTRA_HEADER_DIRS := java.base:libjli, \
++     LDFLAGS := $(LDFLAGS_JDKLIB) \
++diff --git a/make/modules/jdk.jdwp.agent/Lib.gmk b/make/modules/jdk.jdwp.agent/Lib.gmk
++index fbc1750bc58a..7ba77268ae1e 100644
++--- a/make/modules/jdk.jdwp.agent/Lib.gmk
+++++ b/make/modules/jdk.jdwp.agent/Lib.gmk
++@@ -52,6 +52,7 @@ $(eval $(call SetupJdkLibrary, BUILD_LIBJDWP, \
++     NAME := jdwp, \
++     OPTIMIZATION := LOW, \
++     CFLAGS := $(CFLAGS_JDKLIB) -DJDWP_LOGGING, \
+++    CXXFLAGS := $(CXXFLAGS_JDKLIB), \
++     DISABLED_WARNINGS_gcc := unused-function, \
++     DISABLED_WARNINGS_clang := sometimes-uninitialized format-nonliteral \
++         self-assign, \
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0013-Use-ASCII-codeset-on-android.patch b/packages/openjdk-17/0013-Use-ASCII-codeset-on-android.patch
+new file mode 100644
+index 000000000..bda0ce868
+--- /dev/null
++++ b/packages/openjdk-17/0013-Use-ASCII-codeset-on-android.patch
+@@ -0,0 +1,46 @@
++From ef526392bf6695d34e7c381ab723b6517427a7c3 Mon Sep 17 00:00:00 2001
++From: Duy Tran Khanh <40482367+khanhduytran0@users.noreply.github.com>
++Date: Thu, 10 Jun 2021 20:42:40 +0700
++Subject: [PATCH] Use ASCII codeset on android
++
++Since android's locale support is very rudimentary.
++---
++ .../unix/native/libinstrument/EncodingSupport_md.c            | 4 ++++
++ src/jdk.jdwp.agent/share/native/libjdwp/utf_util.c            | 4 ++++
++ 2 files changed, 8 insertions(+)
++
++diff --git a/src/java.instrument/unix/native/libinstrument/EncodingSupport_md.c b/src/java.instrument/unix/native/libinstrument/EncodingSupport_md.c
++index 13cca6453fee..796666173d0b 100644
++--- a/src/java.instrument/unix/native/libinstrument/EncodingSupport_md.c
+++++ b/src/java.instrument/unix/native/libinstrument/EncodingSupport_md.c
++@@ -64,7 +64,11 @@ utfInitialize(void)
++     (void)setlocale(LC_ALL, "");
++ 
++     /* Get the codeset name */
+++#ifndef __ANDROID__
++     codeset = (char*)nl_langinfo(CODESET);
+++#else
+++    codeset = "ASCII"; // (MB_CUR_MAX == 1) ? "ASCII" : "UTF-8";
+++#endif
++     if ( codeset == NULL || codeset[0] == 0 ) {
++         UTF_DEBUG(("NO codeset returned by nl_langinfo(CODESET)\n"));
++         return;
++diff --git a/src/jdk.jdwp.agent/share/native/libjdwp/utf_util.c b/src/jdk.jdwp.agent/share/native/libjdwp/utf_util.c
++index 3fb38893e7d5..20ac7b27096c 100644
++--- a/src/jdk.jdwp.agent/share/native/libjdwp/utf_util.c
+++++ b/src/jdk.jdwp.agent/share/native/libjdwp/utf_util.c
++@@ -483,7 +483,11 @@ static int iconvConvert(conv_direction drn, char *bytes, size_t len, char *outpu
++         // locale is not initialized, do it now
++         if (setlocale(LC_ALL, "") != NULL) {
++             // nl_langinfo returns ANSI_X3.4-1968 by default
+++#ifndef __ANDROID__
++             codeset = (char*)nl_langinfo(CODESET);
+++#else
+++            codeset = "ASCII";
+++#endif
++         }
++ 
++         if (codeset == NULL) {
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0014-Fix-libjvm.so-path-when-run-from-Android-app.patch b/packages/openjdk-17/0014-Fix-libjvm.so-path-when-run-from-Android-app.patch
+new file mode 100644
+index 000000000..610e9cc1f
+--- /dev/null
++++ b/packages/openjdk-17/0014-Fix-libjvm.so-path-when-run-from-Android-app.patch
+@@ -0,0 +1,72 @@
++From 6f58e614fff1dfffbe66974c85be32152f1e18c7 Mon Sep 17 00:00:00 2001
++From: Duy Tran Khanh <40482367+khanhduytran0@users.noreply.github.com>
++Date: Fri, 11 Jun 2021 07:48:28 +0700
++Subject: [PATCH] Fix libjvm.so path when run from Android app
++
++---
++ src/java.base/unix/native/libjli/java_md.c | 49 ++++++++++++++++++++++
++ 1 file changed, 49 insertions(+)
++
++diff --git a/src/java.base/unix/native/libjli/java_md.c b/src/java.base/unix/native/libjli/java_md.c
++index 503a2457b043..1c1bd6798e8e 100644
++--- a/src/java.base/unix/native/libjli/java_md.c
+++++ b/src/java.base/unix/native/libjli/java_md.c
++@@ -595,6 +595,55 @@ SetExecname(char **argv)
++             exec_path = JLI_StringDup(buf);
++         }
++     }
+++#elif defined(__ANDROID__)
+++    char *__java_home = getenv("JAVA_HOME");
+++    // From http://hg.openjdk.java.net/mobile/jdk9/jdk/file/17bb8a98d5e3/src/java.base/unix/native/libjli/java_md_solinux.c#l844
+++    /* For Android, 'self' would point to /system/bin/app_process
+++     * since we are really executing a Dalvik program at this point.
+++     * argv[0] points to the Dalvik application name and we set the
+++     * path to __java_home.
+++     */
+++    char buf[PATH_MAX+1];
+++    char *p = NULL;
+++    if ((p = JLI_StrRChr(argv[0], '/')) != 0) {
+++      /* may be running from command line */
+++      p++;
+++      if ((JLI_StrLen(p) == 4) && JLI_StrCmp(p, "java") == 0) {
+++        /* started as 'java'. Must be command line */
+++        JLI_TraceLauncher("SetExecName maybe command line = %s\n", argv[0]);
+++        if (*argv[0] != '/') {
+++          char *curdir = NULL;
+++          /* get absolute path */
+++          getcwd(buf, PATH_MAX);
+++          curdir = JLI_StringDup(buf);
+++          JLI_Snprintf(buf, PATH_MAX, "%s/%s", curdir, argv[0]);
+++          JLI_MemFree(curdir);
+++        } else {
+++          JLI_Snprintf(buf, PATH_MAX, "%s", argv[0]);
+++        }
+++      } else {
+++        /* Not command line, see if __java_home set */
+++        if (__java_home != NULL) {
+++          JLI_TraceLauncher("SetExecName not java = %s\n", __java_home);
+++          JLI_Snprintf(buf, PATH_MAX, "%s/bin/java", __java_home);
+++        } else {
+++          /* Fake it as best we can or should we punt? */
+++          JLI_TraceLauncher("SetExecName fake it = %s\n", argv[0]);
+++          JLI_Snprintf(buf, PATH_MAX, "@TERMUX_PREFIX@/bin/java");
+++        }
+++      }
+++    } else {
+++        /* Not started as 'java', see if __java_home set */
+++        if (__java_home != NULL) {
+++          JLI_TraceLauncher("SetExecName not command line = %s\n", __java_home);
+++          JLI_Snprintf(buf, PATH_MAX, "%s/bin/java", __java_home);
+++        } else {
+++          /* Fake it as best we can or should we punt? */
+++          JLI_TraceLauncher("SetExecName fake it 2 = %s\n", argv[0]);
+++          JLI_Snprintf(buf, PATH_MAX, "@TERMUX_PREFIX@/bin/java");
+++        }
+++    }
+++    exec_path = JLI_StringDup(buf);
++ #else /* !__linux__ */
++     {
++         /* Not implemented */
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0015-arm-cast-address-to-char-when-clearing-cache.patch b/packages/openjdk-17/0015-arm-cast-address-to-char-when-clearing-cache.patch
+new file mode 100644
+index 000000000..fdde87eba
+--- /dev/null
++++ b/packages/openjdk-17/0015-arm-cast-address-to-char-when-clearing-cache.patch
+@@ -0,0 +1,25 @@
++From 2f48490b3b355eb35643c5bc6d8e42f2e5aa2c0a Mon Sep 17 00:00:00 2001
++From: Duy Tran Khanh <40482367+khanhduytran0@users.noreply.github.com>
++Date: Sat, 12 Jun 2021 06:55:18 +0700
++Subject: [PATCH] arm: cast address to char when clearing cache
++
++---
++ src/hotspot/cpu/arm/icache_arm.cpp | 2 +-
++ 1 file changed, 1 insertion(+), 1 deletion(-)
++
++diff --git a/src/hotspot/cpu/arm/icache_arm.cpp b/src/hotspot/cpu/arm/icache_arm.cpp
++index 61fcb8a35804..93d2ad4f4948 100644
++--- a/src/hotspot/cpu/arm/icache_arm.cpp
+++++ b/src/hotspot/cpu/arm/icache_arm.cpp
++@@ -31,7 +31,7 @@
++ 
++ 
++ static int icache_flush(address addr, int lines, int magic) {
++-  __builtin___clear_cache(addr, addr + (lines << ICache::log2_line_size));
+++  __builtin___clear_cache((char*) addr, (char*) (addr + (lines << ICache::log2_line_size)));
++   return magic;
++ }
++ 
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0016-Don-t-run-fpu_control-related-functions-on-Android.patch b/packages/openjdk-17/0016-Don-t-run-fpu_control-related-functions-on-Android.patch
+new file mode 100644
+index 000000000..349c3b409
+--- /dev/null
++++ b/packages/openjdk-17/0016-Don-t-run-fpu_control-related-functions-on-Android.patch
+@@ -0,0 +1,75 @@
++From f0a0b72c834c309f71b4b31ade351e14c67c1d59 Mon Sep 17 00:00:00 2001
++From: Duy Tran Khanh <40482367+khanhduytran0@users.noreply.github.com>
++Date: Sat, 12 Jun 2021 06:58:20 +0700
++Subject: [PATCH] Don't run fpu_control related functions on Android
++
++---
++ src/hotspot/os_cpu/linux_arm/os_linux_arm.cpp |  2 ++
++ src/hotspot/os_cpu/linux_x86/os_linux_x86.cpp | 10 +++++-----
++ 2 files changed, 7 insertions(+), 5 deletions(-)
++
++diff --git a/src/hotspot/os_cpu/linux_arm/os_linux_arm.cpp b/src/hotspot/os_cpu/linux_arm/os_linux_arm.cpp
++index 6fc0c840642f..a9a3087419bd 100644
++--- a/src/hotspot/os_cpu/linux_arm/os_linux_arm.cpp
+++++ b/src/hotspot/os_cpu/linux_arm/os_linux_arm.cpp
++@@ -70,7 +70,9 @@
++ # include <pwd.h>
++ # include <poll.h>
++ # include <ucontext.h>
+++#ifndef __ANDROID__
++ # include <fpu_control.h>
+++#endif
++ # include <asm/ptrace.h>
++ 
++ #define SPELL_REG_SP  "sp"
++diff --git a/src/hotspot/os_cpu/linux_x86/os_linux_x86.cpp b/src/hotspot/os_cpu/linux_x86/os_linux_x86.cpp
++index cc71b0d27801..be6ad9c00c37 100644
++--- a/src/hotspot/os_cpu/linux_x86/os_linux_x86.cpp
+++++ b/src/hotspot/os_cpu/linux_x86/os_linux_x86.cpp
++@@ -73,7 +73,7 @@
++ # include <pwd.h>
++ # include <poll.h>
++ # include <ucontext.h>
++-#ifndef AMD64
+++#if !defined(AMD64) && !defined(__ANDROID__)
++ # include <fpu_control.h>
++ #endif
++ 
++@@ -418,14 +418,14 @@ bool PosixSignals::pd_hotspot_signal_handler(int sig, siginfo_t* info,
++ }
++ 
++ void os::Linux::init_thread_fpu_state(void) {
++-#ifndef AMD64
+++#if !defined(AMD64) && !defined(__ANDROID__)
++   // set fpu to 53 bit precision
++   set_fpu_control_word(0x27f);
++ #endif // !AMD64
++ }
++ 
++ int os::Linux::get_fpu_control_word(void) {
++-#ifdef AMD64
+++#if defined(AMD64) || defined(__ANDROID__)
++   return 0;
++ #else
++   int fpu_control;
++@@ -435,7 +435,7 @@ int os::Linux::get_fpu_control_word(void) {
++ }
++ 
++ void os::Linux::set_fpu_control_word(int fpu_control) {
++-#ifndef AMD64
+++#if !defined(AMD64) && !defined(__ANDROID__)
++   _FPU_SETCW(fpu_control);
++ #endif // !AMD64
++ }
++@@ -614,7 +614,7 @@ void os::print_register_info(outputStream *st, const void *context) {
++ }
++ 
++ void os::setup_fpu() {
++-#ifndef AMD64
+++#if !defined(AMD64) && !defined(__ANDROID__)
++   address fpu_cntrl = StubRoutines::x86::addr_fpu_cntrl_wrd_std();
++   __asm__ volatile (  "fldcw (%0)" :
++                       : "r" (fpu_cntrl) : "memory");
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0017-Libfontmanager-link-against-libawt-to-fix-link-error.patch b/packages/openjdk-17/0017-Libfontmanager-link-against-libawt-to-fix-link-error.patch
+new file mode 100644
+index 000000000..c13a14f5e
+--- /dev/null
++++ b/packages/openjdk-17/0017-Libfontmanager-link-against-libawt-to-fix-link-error.patch
+@@ -0,0 +1,34 @@
++From dc61b83ee07fa59d1f3afa18bba0500011928b5a Mon Sep 17 00:00:00 2001
++From: Duy Tran Khanh <40482367+khanhduytran0@users.noreply.github.com>
++Date: Sat, 12 Jun 2021 17:03:05 +0700
++Subject: [PATCH] Libfontmanager: link against libawt to fix link error
++
++Partly based on commit from androidports:
++https://github.com/androidports/openjdk/commit/a3e4f0281154537f01c2e59286a6ceed9c827b11
++---
++ make/modules/java.desktop/lib/Awt2dLibraries.gmk | 4 ++--
++ 1 file changed, 2 insertions(+), 2 deletions(-)
++
++diff --git a/make/modules/java.desktop/lib/Awt2dLibraries.gmk b/make/modules/java.desktop/lib/Awt2dLibraries.gmk
++index 4d0c0c00dbf0..64aea561a80c 100644
++--- a/make/modules/java.desktop/lib/Awt2dLibraries.gmk
+++++ b/make/modules/java.desktop/lib/Awt2dLibraries.gmk
++@@ -527,13 +527,13 @@ $(eval $(call SetupJdkLibrary, BUILD_LIBFONTMANAGER, \
++     LDFLAGS_unix := -L$(INSTALL_LIBRARIES_HERE), \
++     LDFLAGS_aix := -Wl$(COMMA)-berok, \
++     LIBS := $(BUILD_LIBFONTMANAGER_FONTLIB), \
++-    LIBS_unix := -lawt -ljava -ljvm $(LIBM) $(LIBCXX), \
+++    LIBS_unix := -lawt -lawt_xawt -ljava -ljvm -lc $(LIBM) $(LIBCXX), \
++     LIBS_macosx := -lawt_lwawt -framework CoreText -framework CoreFoundation -framework CoreGraphics, \
++     LIBS_windows := $(WIN_JAVA_LIB) advapi32.lib user32.lib gdi32.lib \
++         $(WIN_AWT_LIB), \
++ ))
++ 
++-$(BUILD_LIBFONTMANAGER): $(BUILD_LIBAWT)
+++$(BUILD_LIBFONTMANAGER): $(BUILD_LIBAWT) $(BUILD_LIBAWT_XAWT)
++ 
++ ifeq ($(call isTargetOs, macosx), true)
++   $(BUILD_LIBFONTMANAGER): $(call FindLib, $(MODULE), awt_lwawt)
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0018-Try-to-get-libjvm.so-path-from-proc-self-maps-on-and.patch b/packages/openjdk-17/0018-Try-to-get-libjvm.so-path-from-proc-self-maps-on-and.patch
+new file mode 100644
+index 000000000..7e619ea59
+--- /dev/null
++++ b/packages/openjdk-17/0018-Try-to-get-libjvm.so-path-from-proc-self-maps-on-and.patch
+@@ -0,0 +1,84 @@
++From ce9b5aeeb5bc30078619cd013ab811c680f5bb2b Mon Sep 17 00:00:00 2001
++From: Duy Tran Khanh <40482367+khanhduytran0@users.noreply.github.com>
++Date: Fri, 25 Jun 2021 17:19:24 +0700
++Subject: [PATCH] Try to get libjvm.so path from /proc/self/maps on android
++
++---
++ src/hotspot/os/linux/os_linux.cpp | 40 +++++++++++++++++++++++++++++++
++ 1 file changed, 40 insertions(+)
++
++diff --git a/src/hotspot/os/linux/os_linux.cpp b/src/hotspot/os/linux/os_linux.cpp
++index 08b27d2dbe22..ba62344d3263 100644
++--- a/src/hotspot/os/linux/os_linux.cpp
+++++ b/src/hotspot/os/linux/os_linux.cpp
++@@ -182,6 +182,8 @@ static int clock_tics_per_sec = 100;
++ // avoid this
++ static bool suppress_primordial_thread_resolution = false;
++ 
+++static bool read_so_path_from_maps(const char* so_name, char* buf, int buflen);
+++
++ // utility functions
++ 
++ julong os::available_memory() {
++@@ -1523,6 +1525,30 @@ bool os::dll_address_to_library_name(address addr, char* buf,
++   return false;
++ }
++ 
+++static bool read_so_path_from_maps(const char* so_name, char* buf, int buflen) {
+++  FILE *fp = fopen("/proc/self/maps", "r");
+++  assert(fp, "Failed to open /proc/self/maps");
+++  if (!fp) {
+++    return false;
+++  }
+++
+++  char maps_buffer[2048];
+++  while (fgets(maps_buffer, 2048, fp) != NULL) {
+++    if (strstr(maps_buffer, so_name) == NULL) {
+++      continue;
+++    }
+++
+++    char *so_path = strchr(maps_buffer, '/');
+++    so_path[strlen(so_path) - 1] = '\0'; // Cut trailing \n
+++    jio_snprintf(buf, buflen, "%s", so_path);
+++    fclose(fp);
+++    return true;
+++  }
+++
+++  fclose(fp);
+++  return false;
+++}
+++
++ // Loads .dll/.so and
++ // in case of error it checks if .dll/.so was built for the
++ // same architecture as Hotspot is running on
++@@ -2544,6 +2570,19 @@ void os::jvm_path(char *buf, jint buflen) {
++                                          CAST_FROM_FN_PTR(address, os::jvm_path),
++                                          dli_fname, sizeof(dli_fname), NULL);
++   assert(ret, "cannot locate libjvm");
+++#ifdef __ANDROID__
+++  if (dli_fname[0] == '\0') {
+++    return;
+++  }
+++
+++  if (strchr(dli_fname, '/') == NULL) {
+++    bool ok = read_so_path_from_maps(dli_fname, buf, buflen);
+++    assert(ok, "unable to turn relative libjvm.so path into absolute");
+++    return;
+++  }
+++
+++  snprintf(buf, buflen, /* "%s/lib/%s/server/%s", java_home_var, cpu_arch, */ "%s", dli_fname);
+++#else // !__ANDROID__
++   char *rp = NULL;
++   if (ret && dli_fname[0] != '\0') {
++     rp = os::Posix::realpath(dli_fname, buf, buflen);
++@@ -2609,6 +2648,7 @@ void os::jvm_path(char *buf, jint buflen) {
++       }
++     }
++   }
+++#endif
++ 
++   strncpy(saved_jvm_path, buf, MAXPATHLEN);
++   saved_jvm_path[MAXPATHLEN - 1] = '\0';
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0019-Warn-instead-of-exiting-if-getcpu-2-is-unsupported.patch b/packages/openjdk-17/0019-Warn-instead-of-exiting-if-getcpu-2-is-unsupported.patch
+new file mode 100644
+index 000000000..043b65867
+--- /dev/null
++++ b/packages/openjdk-17/0019-Warn-instead-of-exiting-if-getcpu-2-is-unsupported.patch
+@@ -0,0 +1,26 @@
++From 524a68b41998d6657218c1be15c1d64dbd9f4596 Mon Sep 17 00:00:00 2001
++From: Duy Tran Khanh <40482367+khanhduytran0@users.noreply.github.com>
++Date: Mon, 28 Jun 2021 17:47:31 +0700
++Subject: [PATCH] Warn instead of exiting if getcpu(2) is unsupported
++
++---
++ src/hotspot/os/linux/os_linux.cpp | 3 ++-
++ 1 file changed, 2 insertions(+), 1 deletion(-)
++
++diff --git a/src/hotspot/os/linux/os_linux.cpp b/src/hotspot/os/linux/os_linux.cpp
++index ba62344d3263..5e9b44598acd 100644
++--- a/src/hotspot/os/linux/os_linux.cpp
+++++ b/src/hotspot/os/linux/os_linux.cpp
++@@ -2983,7 +2983,8 @@ void os::Linux::sched_getcpu_init() {
++   }
++ 
++   if (sched_getcpu() == -1) {
++-    vm_exit_during_initialization("getcpu(2) system call not supported by kernel");
+++    // vm_exit_during_initialization
+++    warning("getcpu(2) system call not supported by kernel");
++   }
++ }
++ 
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0020-Remove-pre-UAL-aliases.patch b/packages/openjdk-17/0020-Remove-pre-UAL-aliases.patch
+new file mode 100644
+index 000000000..dc41e4f73
+--- /dev/null
++++ b/packages/openjdk-17/0020-Remove-pre-UAL-aliases.patch
+@@ -0,0 +1,136 @@
++From 6a125e5bdaa15675ebf97e4740de18e6ddf46c5a Mon Sep 17 00:00:00 2001
++From: Duy Tran Khanh <40482367+khanhduytran0@users.noreply.github.com>
++Date: Wed, 30 Jun 2021 14:28:14 +0700
++Subject: [PATCH] Remove pre-UAL aliases
++
++---
++ src/hotspot/os_cpu/linux_arm/linux_arm_32.S | 40 ++++++++++-----------
++ 1 file changed, 20 insertions(+), 20 deletions(-)
++
++diff --git a/src/hotspot/os_cpu/linux_arm/linux_arm_32.S b/src/hotspot/os_cpu/linux_arm/linux_arm_32.S
++index c1c8fd428154..626982e13db0 100644
++--- a/src/hotspot/os_cpu/linux_arm/linux_arm_32.S
+++++ b/src/hotspot/os_cpu/linux_arm/linux_arm_32.S
++@@ -94,7 +94,7 @@ dw_f2b_loop_32:
++         stmia to!, {r3 - r9, ip}
++         bgt     dw_f2b_loop_32
++ dw_f2b_loop_32_finish:
++-        addlts  r2, #32
+++        addslt  r2, #32
++         beq     disjoint_words_finish
++         cmp     r2, #16
++ 	blt	disjoint_words_small
++@@ -142,7 +142,7 @@ cw_f2b_loop_32:
++         stmia to!, {r3 - r9, ip}
++         bgt     cw_f2b_loop_32
++ cw_f2b_loop_32_finish:
++-        addlts  r2, #32
+++        addslt  r2, #32
++         beq     conjoint_words_finish
++         cmp     r2, #16
++ 	blt	conjoint_words_small
++@@ -175,7 +175,7 @@ cw_b2f_loop_32:
++         stmdb to!, {r3-r9,ip}
++         bgt     cw_b2f_loop_32
++ cw_b2f_loop_32_finish:
++-        addlts  r2, #32
+++        addslt  r2, #32
++         beq     conjoint_words_finish
++         cmp     r2, #16
++ 	blt	cw_b2f_copy_small
++@@ -227,7 +227,7 @@ cs_f2b_loop_32:
++         stmia to!, {r3 - r9, ip}
++         bgt     cs_f2b_loop_32
++ cs_f2b_loop_32_finish:
++-        addlts  r2, #32
+++        addslt  r2, #32
++         beq     conjoint_shorts_finish
++         movs    r6, r2, lsr #3
++         .align 3
++@@ -243,11 +243,11 @@ cs_f2b_4:
++         beq     conjoint_shorts_finish
++         cmp     r2, #4
++         ldrh    r3, [from], #2
++-        ldrgeh  r4, [from], #2
++-        ldrgth  r5, [from], #2
+++        ldrhge  r4, [from], #2
+++        ldrhgt  r5, [from], #2
++         strh    r3, [to], #2
++-        strgeh  r4, [to], #2
++-        strgth  r5, [to], #2
+++        strhge  r4, [to], #2
+++        strhgt  r5, [to], #2
++         b       conjoint_shorts_finish
++ 
++ 	# Destination not aligned
++@@ -305,11 +305,11 @@ cs_f2b_4_u:
++         beq     conjoint_shorts_finish
++         cmp     r2, #4
++         ldrh    r3, [from], #2
++-        ldrgeh  r4, [from], #2
++-        ldrgth  r5, [from], #2
+++        ldrhge  r4, [from], #2
+++        ldrhgt  r5, [from], #2
++         strh    r3, [to], #2
++-        strgeh  r4, [to], #2
++-        strgth  r5, [to], #2
+++        strhge  r4, [to], #2
+++        strhgt  r5, [to], #2
++         b       conjoint_shorts_finish
++ 
++ 	# Src and dest overlap, copy in a descending order
++@@ -332,7 +332,7 @@ cs_b2f_loop_32:
++         stmdb to!, {r3-r9,ip}
++         bgt     cs_b2f_loop_32
++ cs_b2f_loop_32_finish:
++-        addlts  r2, #32
+++        addslt  r2, #32
++         beq     conjoint_shorts_finish
++         cmp     r2, #24
++         blt     cs_b2f_16
++@@ -358,11 +358,11 @@ cs_b2f_8:
++ cs_b2f_all_copy:
++         cmp     r2, #4
++         ldrh    r3, [from, #-2]!
++-        ldrgeh  r4, [from, #-2]!
++-        ldrgth  r5, [from, #-2]!
+++        ldrhge  r4, [from, #-2]!
+++        ldrhgt  r5, [from, #-2]!
++         strh    r3, [to, #-2]!
++-        strgeh  r4, [to, #-2]!
++-        strgth  r5, [to, #-2]!
+++        strhge  r4, [to, #-2]!
+++        strhgt  r5, [to, #-2]!
++         b       conjoint_shorts_finish
++ 
++ 	# Destination not aligned
++@@ -397,7 +397,7 @@ cs_b2f_16_loop_u:
++         bgt     cs_b2f_16_loop_u
++         beq     conjoint_shorts_finish
++ cs_b2f_16_loop_u_finished:
++-        addlts  r2, #16
+++        addslt  r2, #16
++         ldr     r3, [from]
++ 	cmp     r2, #10
++         blt     cs_b2f_2_u_loop
++@@ -460,7 +460,7 @@ cl_f2b_loop_32:
++         stmia to!, {r3 - r9, ip}
++         bgt     cl_f2b_loop_32
++ cl_f2b_loop_32_finish:
++-        addlts  r2, #32
+++        addslt  r2, #32
++         beq     conjoint_longs_finish
++ conjoint_longs_small:
++         cmp     r2, #16
++@@ -493,7 +493,7 @@ cl_b2f_loop_32:
++         stmdb 	to!, {r3 - r9, ip}
++         bgt     cl_b2f_loop_32
++ cl_b2f_loop_32_finish:
++-        addlts  r2, #32
+++        addslt  r2, #32
++         beq     conjoint_longs_finish
++         cmp     r2, #16
++ 	blt	cl_b2f_copy_8
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0021-arm-fix-assembly-in-os_linux_arm.cpp.patch b/packages/openjdk-17/0021-arm-fix-assembly-in-os_linux_arm.cpp.patch
+new file mode 100644
+index 000000000..a0ae35d48
+--- /dev/null
++++ b/packages/openjdk-17/0021-arm-fix-assembly-in-os_linux_arm.cpp.patch
+@@ -0,0 +1,27 @@
++From 729d65c3f5268a64c4bb212b6dff920c24afa21b Mon Sep 17 00:00:00 2001
++From: Duy Tran Khanh <40482367+khanhduytran0@users.noreply.github.com>
++Date: Wed, 30 Jun 2021 14:30:02 +0700
++Subject: [PATCH] arm: fix assembly in os_linux_arm.cpp
++
++---
++ src/hotspot/os_cpu/linux_arm/os_linux_arm.cpp | 4 ++--
++ 1 file changed, 2 insertions(+), 2 deletions(-)
++
++diff --git a/src/hotspot/os_cpu/linux_arm/os_linux_arm.cpp b/src/hotspot/os_cpu/linux_arm/os_linux_arm.cpp
++index a9a3087419bd..3296ad867666 100644
++--- a/src/hotspot/os_cpu/linux_arm/os_linux_arm.cpp
+++++ b/src/hotspot/os_cpu/linux_arm/os_linux_arm.cpp
++@@ -408,8 +408,8 @@ void os::setup_fpu() {
++ #if !defined(__SOFTFP__) && defined(__VFP_FP__)
++   // Turn on IEEE-754 compliant VFP mode
++   __asm__ volatile (
++-    "mov %%r0, #0;"
++-    "fmxr fpscr, %%r0"
+++    "mov r0, #0;"
+++    "fmxr fpscr, r0"
++     : /* no output */ : /* no input */ : "r0"
++   );
++ #endif
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0022-Add-workaround-for-tagged-pointers-on-Android-12.patch b/packages/openjdk-17/0022-Add-workaround-for-tagged-pointers-on-Android-12.patch
+new file mode 100644
+index 000000000..a4fe4ebc1
+--- /dev/null
++++ b/packages/openjdk-17/0022-Add-workaround-for-tagged-pointers-on-Android-12.patch
+@@ -0,0 +1,59 @@
++From e89d39d41e2f7094178aa856d57e5ea1b779d790 Mon Sep 17 00:00:00 2001
++From: Tee KOBAYASHI <xtkoba@gmail.com>
++Date: Fri, 3 Feb 2023 11:32:40 +0100
++Subject: [PATCH] Add workaround for tagged pointers on Android 12
++
++Co-authored-by: dev-bz <32380878+dev-bz@users.noreply.github.com>
++---
++ src/java.base/share/native/libjli/java.c | 28 ++++++++++++++++++++++++
++ 1 file changed, 28 insertions(+)
++
++diff --git a/src/java.base/share/native/libjli/java.c b/src/java.base/share/native/libjli/java.c
++index e519686cb78b..095afa1159bb 100644
++--- a/src/java.base/share/native/libjli/java.c
+++++ b/src/java.base/share/native/libjli/java.c
++@@ -54,6 +54,32 @@
++ #include "java.h"
++ #include "jni.h"
++ 
+++#ifdef __TERMUX__
+++#include <stdbool.h>
+++#include <dlfcn.h>
+++static void android_disable_tags() {
+++    void *lib_handle = dlopen("libc.so", RTLD_LAZY);
+++    if (lib_handle) {
+++        if (android_get_device_api_level() >= 31) {
+++            int (*mallopt_func)(int, int) = dlsym(lib_handle, "mallopt");
+++            if (mallopt_func) {
+++                mallopt_func(M_BIONIC_SET_HEAP_TAGGING_LEVEL, 0);
+++            }
+++            return;
+++        }
+++        /* android_get_device_api_level() < 31 */
+++        bool (*android_mallopt)(int opcode, void* arg, size_t arg_size) = dlsym(lib_handle, "android_mallopt");
+++        if (android_mallopt) {
+++            int android_malloc_tag_level = 0;
+++            android_mallopt(8, &android_malloc_tag_level, sizeof(android_malloc_tag_level));
+++        }
+++        dlclose(lib_handle);
+++    }
+++}
+++#else
+++static void android_disable_tags(){}
+++#endif
+++
++ /*
++  * A NOTE TO DEVELOPERS: For performance reasons it is important that
++  * the program image remain relatively small until after SelectVersion
++@@ -252,6 +278,8 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argv */
++     _is_java_args = javaargs;
++     _wc_enabled = cpwildcard;
++ 
+++    android_disable_tags();
+++
++     InitLauncher(javaw);
++     DumpState();
++     if (JLI_IsTraceLauncher()) {
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0023-x86-always-compile-with-PIC.patch b/packages/openjdk-17/0023-x86-always-compile-with-PIC.patch
+new file mode 100644
+index 000000000..3117a4f37
+--- /dev/null
++++ b/packages/openjdk-17/0023-x86-always-compile-with-PIC.patch
+@@ -0,0 +1,41 @@
++From ab98aadd7953c5d41fad994e82e433d07dfb1885 Mon Sep 17 00:00:00 2001
++From: =?UTF-8?q?=E6=BA=AF=E6=B4=84?= <1840686745@qq.com>
++Date: Thu, 26 Aug 2021 14:00:54 +0800
++Subject: [PATCH] x86: always compile with PIC
++
++---
++ make/hotspot/lib/JvmOverrideFiles.gmk | 18 ------------------
++ 1 file changed, 18 deletions(-)
++
++diff --git a/make/hotspot/lib/JvmOverrideFiles.gmk b/make/hotspot/lib/JvmOverrideFiles.gmk
++index a9f8a0e54ede..2ba0ec0105e8 100644
++--- a/make/hotspot/lib/JvmOverrideFiles.gmk
+++++ b/make/hotspot/lib/JvmOverrideFiles.gmk
++@@ -65,24 +65,6 @@ ifeq ($(call isTargetOs, linux), true)
++ 	#
++   endif
++ 
++-  ifeq ($(call isTargetCpu, x86), true)
++-    # Performance measurements show that by compiling GC related code, we could
++-    # significantly reduce the GC pause time on 32 bit Linux/Unix platforms by
++-    # compiling without the PIC flag (-fPIC on linux).
++-    # See 6454213 for more details.
++-    ALL_SRC := $(call FindFiles, $(TOPDIR)/src/hotspot/share, *.cpp)
++-    NONPIC_FILTER := $(addsuffix %, $(addprefix $(TOPDIR)/src/hotspot/share/, \
++-        memory oops gc))
++-    # Due to what looks like a bug in the old build implementation of this, add a
++-    # couple of more files that were accidentally matched as substrings of GC related
++-    # files.
++-    NONPIC_SRC := $(filter $(NONPIC_FILTER), $(ALL_SRC)) globals.cpp location.cpp
++-    # Declare variables for each source file that needs the pic flag like this:
++-    # BUILD_JVM_<srcfile>_CXXFLAGS := -fno-PIC
++-    # This will get implicitly picked up by SetupNativeCompilation below.
++-    $(foreach s, $(NONPIC_SRC), $(eval BUILD_LIBJVM_$(notdir $s)_CXXFLAGS := -fno-PIC))
++-  endif
++-
++ else ifeq ($(call isTargetOs, macosx), true)
++   # The copied fdlibm routines in these files must not be optimized
++   BUILD_LIBJVM_sharedRuntimeTrig.cpp_CXXFLAGS := $(FDLIBM_CFLAGS) $(LIBJVM_FDLIBM_COPY_OPT_FLAG)
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0024-Fix-StackOverflowError-on-ARM.patch b/packages/openjdk-17/0024-Fix-StackOverflowError-on-ARM.patch
+new file mode 100644
+index 000000000..062e0c65e
+--- /dev/null
++++ b/packages/openjdk-17/0024-Fix-StackOverflowError-on-ARM.patch
+@@ -0,0 +1,31 @@
++From 6af54e5c11b0d9d24f24a453ea0f3be1ff9eab30 Mon Sep 17 00:00:00 2001
++From: =?UTF-8?q?=E6=BA=AF=E6=B4=84?= <1840686745@qq.com>
++Date: Thu, 26 Aug 2021 03:53:25 +0800
++Subject: [PATCH] Fix StackOverflowError on ARM
++
++---
++ src/hotspot/os_cpu/linux_arm/os_linux_arm.cpp | 6 ++++++
++ 1 file changed, 6 insertions(+)
++
++diff --git a/src/hotspot/os_cpu/linux_arm/os_linux_arm.cpp b/src/hotspot/os_cpu/linux_arm/os_linux_arm.cpp
++index 3296ad867666..f53b57a4795e 100644
++--- a/src/hotspot/os_cpu/linux_arm/os_linux_arm.cpp
+++++ b/src/hotspot/os_cpu/linux_arm/os_linux_arm.cpp
++@@ -83,8 +83,14 @@
++ #endif
++ 
++ address os::current_stack_pointer() {
+++#if defined(__clang__) || defined(__llvm__)
+++  void *sp;
+++  __asm__("mov %0, " SPELL_REG_SP : "=r"(sp));
+++  return (address) sp;
+++#else
++   register address sp __asm__ (SPELL_REG_SP);
++   return sp;
+++#endif
++ }
++ 
++ char* os::non_memory_address_word() {
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0025-android-dlvsym-is-available-if-ANDROID_API-24.patch b/packages/openjdk-17/0025-android-dlvsym-is-available-if-ANDROID_API-24.patch
+new file mode 100644
+index 000000000..783e4732e
+--- /dev/null
++++ b/packages/openjdk-17/0025-android-dlvsym-is-available-if-ANDROID_API-24.patch
+@@ -0,0 +1,25 @@
++From 3e14a49cc9ff3c2a302a8306000fc1de7da3087f Mon Sep 17 00:00:00 2001
++From: Henrik Grimler <grimler@termux.dev>
++Date: Fri, 3 Feb 2023 11:50:57 +0100
++Subject: [PATCH] android: dlvsym is available if ANDROID_API >= 24
++
++---
++ src/hotspot/os/linux/os_linux.cpp | 2 +-
++ 1 file changed, 1 insertion(+), 1 deletion(-)
++
++diff --git a/src/hotspot/os/linux/os_linux.cpp b/src/hotspot/os/linux/os_linux.cpp
++index 5e9b44598acd..31fc882b0344 100644
++--- a/src/hotspot/os/linux/os_linux.cpp
+++++ b/src/hotspot/os/linux/os_linux.cpp
++@@ -132,7 +132,7 @@
++ // for timer info max values which include all bits
++ #define ALL_64_BITS CONST64(0xFFFFFFFFFFFFFFFF)
++ 
++-#if defined(MUSL_LIBC) || defined(__ANDROID__)
+++#if defined(MUSL_LIBC) || (defined(__ANDROID__) && __ANDROID_API__ < 24)
++ // dlvsym is not a part of POSIX
++ // and musl libc doesn't implement it.
++ static void *dlvsym(void *handle,
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0026-configure-do-not-require-alsa.patch b/packages/openjdk-17/0026-configure-do-not-require-alsa.patch
+new file mode 100644
+index 000000000..b5855696f
+--- /dev/null
++++ b/packages/openjdk-17/0026-configure-do-not-require-alsa.patch
+@@ -0,0 +1,32 @@
++From 5ad51e1ed4153e1be3582eea47470ebed51f6b5a Mon Sep 17 00:00:00 2001
++From: Henrik Grimler <grimler@termux.dev>
++Date: Wed, 8 Feb 2023 15:36:25 +0100
++Subject: [PATCH] configure: do not require alsa
++
++Android, which counts as linux according to configure check, does not
++have alsa so we cannot use it.
++---
++ make/autoconf/libraries.m4 | 7 +------
++ 1 file changed, 1 insertion(+), 6 deletions(-)
++
++diff --git a/make/autoconf/libraries.m4 b/make/autoconf/libraries.m4
++index 3c9a466eaf48..c59f500a350a 100644
++--- a/make/autoconf/libraries.m4
+++++ b/make/autoconf/libraries.m4
++@@ -74,12 +74,7 @@ AC_DEFUN_ONCE([LIB_DETERMINE_DEPENDENCIES],
++     NEEDS_LIB_FREETYPE=true
++   fi
++ 
++-  # Check if alsa is needed
++-  if test "x$OPENJDK_TARGET_OS" = xlinux; then
++-    NEEDS_LIB_ALSA=true
++-  else
++-    NEEDS_LIB_ALSA=false
++-  fi
+++  NEEDS_LIB_ALSA=false
++ 
++   # Check if ffi is needed
++   if HOTSPOT_CHECK_JVM_VARIANT(zero); then
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0027-8277233-Improve-ECDSA-signature-support.patch b/packages/openjdk-17/0027-8277233-Improve-ECDSA-signature-support.patch
+new file mode 100644
+index 000000000..35012e64d
+--- /dev/null
++++ b/packages/openjdk-17/0027-8277233-Improve-ECDSA-signature-support.patch
+@@ -0,0 +1,79 @@
++From 0340e303d7ae77f73a6451737a9e7e4583010fdd Mon Sep 17 00:00:00 2001
++From: Aleksei Voitylov <avoitylov@openjdk.org>
++Date: Mon, 10 Jan 2022 21:08:58 +0000
++Subject: [PATCH] 8277233: Improve ECDSA signature support
++
++Reviewed-by: mbaesken
++Backport-of: 34714d63f1be267c2bc2ae7a55f936deab8ea6d2
++---
++ .../share/classes/sun/security/provider/DSA.java    |  5 +++--
++ .../classes/sun/security/ec/ECDSAOperations.java    | 13 +++++++++++--
++ 2 files changed, 14 insertions(+), 4 deletions(-)
++
++diff --git a/src/java.base/share/classes/sun/security/provider/DSA.java b/src/java.base/share/classes/sun/security/provider/DSA.java
++index a7c42a1f35a0..6cbc7d0fbc98 100644
++--- a/src/java.base/share/classes/sun/security/provider/DSA.java
+++++ b/src/java.base/share/classes/sun/security/provider/DSA.java
++@@ -1,5 +1,5 @@
++ /*
++- * Copyright (c) 1996, 2020, Oracle and/or its affiliates. All rights reserved.
+++ * Copyright (c) 1996, 2021, Oracle and/or its affiliates. All rights reserved.
++  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++  *
++  * This code is free software; you can redistribute it and/or modify it
++@@ -362,7 +362,8 @@ abstract class DSA extends SignatureSpi {
++             s = new BigInteger(1, s.toByteArray());
++         }
++ 
++-        if ((r.compareTo(presetQ) == -1) && (s.compareTo(presetQ) == -1)) {
+++        if ((r.compareTo(presetQ) == -1) && (s.compareTo(presetQ) == -1)
+++                && r.signum() > 0 && s.signum() > 0) {
++             BigInteger w = generateW(presetP, presetQ, presetG, s);
++             BigInteger v = generateV(presetY, presetP, presetQ, presetG, w, r);
++             return v.equals(r);
++diff --git a/src/jdk.crypto.ec/share/classes/sun/security/ec/ECDSAOperations.java b/src/jdk.crypto.ec/share/classes/sun/security/ec/ECDSAOperations.java
++index 00010d28d1b7..af6b1e160ca5 100644
++--- a/src/jdk.crypto.ec/share/classes/sun/security/ec/ECDSAOperations.java
+++++ b/src/jdk.crypto.ec/share/classes/sun/security/ec/ECDSAOperations.java
++@@ -1,5 +1,5 @@
++ /*
++- * Copyright (c) 2018, 2020, Oracle and/or its affiliates. All rights reserved.
+++ * Copyright (c) 2018, 2021, Oracle and/or its affiliates. All rights reserved.
++  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++  *
++  * This code is free software; you can redistribute it and/or modify it
++@@ -30,6 +30,7 @@ import sun.security.util.ArrayUtil;
++ import sun.security.util.math.*;
++ import static sun.security.ec.ECOperations.IntermediateValueException;
++ 
+++import java.math.BigInteger;
++ import java.security.ProviderException;
++ import java.security.spec.*;
++ import java.util.Arrays;
++@@ -200,7 +201,8 @@ public class ECDSAOperations {
++ 
++         IntegerFieldModuloP field = ecOps.getField();
++         IntegerFieldModuloP orderField = ecOps.getOrderField();
++-        int length = (orderField.getSize().bitLength() + 7) / 8;
+++        BigInteger mod = orderField.getSize();
+++        int length = (mod.bitLength() + 7) / 8;
++ 
++         byte[] r;
++         byte[] s;
++@@ -218,6 +220,13 @@ public class ECDSAOperations {
++             System.arraycopy(sig, encodeLength, s, length - encodeLength, encodeLength);
++         }
++ 
+++        BigInteger rb = new BigInteger(1, r);
+++        BigInteger sb = new BigInteger(1, s);
+++        if (rb.signum() == 0 || sb.signum() == 0
+++                || rb.compareTo(mod) >= 0 || sb.compareTo(mod) >= 0) {
+++            return false;
+++        }
+++
++         ArrayUtil.reverse(r);
++         ArrayUtil.reverse(s);
++         IntegerModuloP ri = orderField.getElement(r);
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0028-8280476-macOS-hotspot-arm64-bug-exposed-by-latest-cl.patch b/packages/openjdk-17/0028-8280476-macOS-hotspot-arm64-bug-exposed-by-latest-cl.patch
+new file mode 100644
+index 000000000..8ccbdea49
+--- /dev/null
++++ b/packages/openjdk-17/0028-8280476-macOS-hotspot-arm64-bug-exposed-by-latest-cl.patch
+@@ -0,0 +1,38 @@
++From 043dd1d1fab3f84f604fcb11f39f9103346b79e9 Mon Sep 17 00:00:00 2001
++From: Vladimir Kempik <vkempik@openjdk.org>
++Date: Thu, 17 Mar 2022 18:46:59 +0000
++Subject: [PATCH] 8280476: [macOS] : hotspot arm64 bug exposed by latest clang
++
++Backport-of: f5d6fddc6df8c5c5456a2544b131833d5227292b
++Bug: https://github.com/termux/termux-packages/issues/12338
++Origin: https://github.com/openjdk/jdk17u/commit/fbe05ec561e8d2a061be126c969c37c219b594f3
++---
++ src/hotspot/cpu/aarch64/immediate_aarch64.cpp | 11 ++++++++++-
++ 1 file changed, 10 insertions(+), 1 deletion(-)
++
++diff --git a/src/hotspot/cpu/aarch64/immediate_aarch64.cpp b/src/hotspot/cpu/aarch64/immediate_aarch64.cpp
++index 3e38b7cca048..916494605bc1 100644
++--- a/src/hotspot/cpu/aarch64/immediate_aarch64.cpp
+++++ b/src/hotspot/cpu/aarch64/immediate_aarch64.cpp
++@@ -129,8 +129,17 @@ static inline uint32_t uimm(uint32_t val, int hi, int lo)
++ 
++ uint64_t replicate(uint64_t bits, int nbits, int count)
++ {
+++  assert(count > 0, "must be");
+++  assert(nbits > 0, "must be");
+++  assert(count * nbits <= 64, "must be");
+++
+++  // Special case nbits == 64 since the shift below with that nbits value
+++  // would result in undefined behavior.
+++  if (nbits == 64) {
+++    return bits;
+++  }
+++
++   uint64_t result = 0;
++-  // nbits may be 64 in which case we want mask to be -1
++   uint64_t mask = ones(nbits);
++   for (int i = 0; i < count ; i++) {
++     result <<= nbits;
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0029-8285407-Improve-Xalan-supports.patch b/packages/openjdk-17/0029-8285407-Improve-Xalan-supports.patch
+new file mode 100644
+index 000000000..02ce96337
+--- /dev/null
++++ b/packages/openjdk-17/0029-8285407-Improve-Xalan-supports.patch
+@@ -0,0 +1,113 @@
++From ab663ee74d6337dc7fdf6c986c41a241f1d3c2dc Mon Sep 17 00:00:00 2001
++From: Joe Wang <joehw@openjdk.org>
++Date: Fri, 13 May 2022 02:02:26 +0000
++Subject: [PATCH] 8285407: Improve Xalan supports
++
++Reviewed-by: naoto, lancea, ahgross, rhalade
++---
++ .../bcel/internal/classfile/ConstantPool.java   | 17 +++++++++++++----
++ .../bcel/internal/generic/ConstantPoolGen.java  | 17 +++++++++++++----
++ 2 files changed, 26 insertions(+), 8 deletions(-)
++
++diff --git a/src/java.xml/share/classes/com/sun/org/apache/bcel/internal/classfile/ConstantPool.java b/src/java.xml/share/classes/com/sun/org/apache/bcel/internal/classfile/ConstantPool.java
++index 303b2b8ad8d8..ed4ce0948ed9 100644
++--- a/src/java.xml/share/classes/com/sun/org/apache/bcel/internal/classfile/ConstantPool.java
+++++ b/src/java.xml/share/classes/com/sun/org/apache/bcel/internal/classfile/ConstantPool.java
++@@ -1,6 +1,5 @@
++ /*
++- * reserved comment block
++- * DO NOT REMOVE OR ALTER!
+++ * Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
++  */
++ /*
++  * Licensed to the Apache Software Foundation (ASF) under one or more
++@@ -26,6 +25,7 @@ import java.io.DataOutputStream;
++ import java.io.IOException;
++ 
++ import com.sun.org.apache.bcel.internal.Const;
+++import com.sun.org.apache.bcel.internal.generic.ConstantPoolGen;
++ 
++ /**
++  * This class represents the constant pool, i.e., a table of constants, of
++@@ -37,6 +37,7 @@ import com.sun.org.apache.bcel.internal.Const;
++ 
++  * @see     Constant
++  * @see     com.sun.org.apache.bcel.internal.generic.ConstantPoolGen
+++ * @LastModified: May 2022
++  */
++ public class ConstantPool implements Cloneable, Node {
++ 
++@@ -222,8 +223,16 @@ public class ConstantPool implements Cloneable, Node {
++      * @throws IOException
++      */
++     public void dump( final DataOutputStream file ) throws IOException {
++-        file.writeShort(constantPool.length);
++-        for (int i = 1; i < constantPool.length; i++) {
+++        /*
+++         * Constants over the size of the constant pool shall not be written out.
+++         * This is a redundant measure as the ConstantPoolGen should have already
+++         * reported an error back in the situation.
+++        */
+++        int size = constantPool.length < ConstantPoolGen.CONSTANT_POOL_SIZE - 1 ?
+++                constantPool.length : ConstantPoolGen.CONSTANT_POOL_SIZE - 1;
+++
+++        file.writeShort(size);
+++        for (int i = 1; i < size; i++) {
++             if (constantPool[i] != null) {
++                 constantPool[i].dump(file);
++             }
++diff --git a/src/java.xml/share/classes/com/sun/org/apache/bcel/internal/generic/ConstantPoolGen.java b/src/java.xml/share/classes/com/sun/org/apache/bcel/internal/generic/ConstantPoolGen.java
++index a1dadbfc4b61..806b40da1ed6 100644
++--- a/src/java.xml/share/classes/com/sun/org/apache/bcel/internal/generic/ConstantPoolGen.java
+++++ b/src/java.xml/share/classes/com/sun/org/apache/bcel/internal/generic/ConstantPoolGen.java
++@@ -1,5 +1,5 @@
++ /*
++- * Copyright (c) 2017, 2021, Oracle and/or its affiliates. All rights reserved.
+++ * Copyright (c) 2017, 2022, Oracle and/or its affiliates. All rights reserved.
++  */
++ /*
++  * Licensed to the Apache Software Foundation (ASF) under one or more
++@@ -50,10 +50,10 @@ import com.sun.org.apache.bcel.internal.classfile.ConstantUtf8;
++  * JVM and that Double and Long constants need two slots.
++  *
++  * @see Constant
++- * @LastModified: May 2021
+++ * @LastModified: May 2022
++  */
++ public class ConstantPoolGen {
++-
+++    public static final int CONSTANT_POOL_SIZE = 65536;
++     private static final int DEFAULT_BUFFER_SIZE = 256;
++     private int size;
++     private Constant[] constants;
++@@ -83,7 +83,7 @@ public class ConstantPoolGen {
++     public ConstantPoolGen(final Constant[] cs) {
++         final StringBuilder sb = new StringBuilder(DEFAULT_BUFFER_SIZE);
++ 
++-        size = Math.max(DEFAULT_BUFFER_SIZE, cs.length + 64);
+++        size = Math.min(Math.max(DEFAULT_BUFFER_SIZE, cs.length + 64), CONSTANT_POOL_SIZE);
++         constants = new Constant[size];
++ 
++         System.arraycopy(cs, 0, constants, 0, cs.length);
++@@ -212,9 +212,18 @@ public class ConstantPoolGen {
++     /** Resize internal array of constants.
++      */
++     protected void adjustSize() {
+++        // 3 extra spaces are needed as some entries may take 3 slots
+++        if (index + 3 >= CONSTANT_POOL_SIZE) {
+++            throw new RuntimeException("The number of constants " + (index + 3)
+++                    + " is over the size of the constant pool: "
+++                    + (CONSTANT_POOL_SIZE - 1));
+++        }
+++
++         if (index + 3 >= size) {
++             final Constant[] cs = constants;
++             size *= 2;
+++            // the constant array shall not exceed the size of the constant pool
+++            size = Math.min(size, CONSTANT_POOL_SIZE);
++             constants = new Constant[size];
++             System.arraycopy(cs, 0, constants, 0, index);
++         }
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0030-Update-hardcoded-paths-to-work-in-termux.patch b/packages/openjdk-17/0030-Update-hardcoded-paths-to-work-in-termux.patch
+new file mode 100644
+index 000000000..21c211734
+--- /dev/null
++++ b/packages/openjdk-17/0030-Update-hardcoded-paths-to-work-in-termux.patch
+@@ -0,0 +1,572 @@
++From aa5840c43ce552624fed1b29c76364cb86ded2fe Mon Sep 17 00:00:00 2001
++From: Henrik Grimler <grimler@termux.dev>
++Date: Tue, 6 Jul 2021 18:29:24 +0700
++Subject: [PATCH] Update hardcoded paths to work in termux
++
++---
++ src/hotspot/os/linux/os_linux.cpp             | 10 +++++--
++ .../share/utilities/virtualizationSupport.cpp |  2 +-
++ .../classes/sun/nio/fs/LinuxFileSystem.java   |  2 +-
++ .../sun/nio/fs/LinuxFileSystemProvider.java   |  2 +-
++ .../share/classes/sun/net/www/MimeTable.java  |  5 ++--
++ .../sun/security/jca/ProviderConfig.java      |  2 +-
++ .../net/dns/ResolverConfigurationImpl.java    |  2 +-
++ .../unix/native/libjava/ProcessImpl_md.c      |  2 +-
++ .../unix/native/libjava/TimeZone_md.c         |  6 ++--
++ .../com/sun/java/swing/plaf/gtk/Metacity.java | 11 +++-----
++ .../com/sun/media/sound/SoftSynthesizer.java  |  8 +++---
++ .../classes/sun/font/SunFontManager.java      |  2 +-
++ .../share/classes/sun/print/PSPrinterJob.java |  4 +--
++ .../sun/awt/X11/MotifColorUtilities.java      |  2 +-
++ .../sun/print/PrintServiceLookupProvider.java | 28 +++++++++----------
++ .../unix/classes/sun/print/UnixPrintJob.java  |  2 +-
++ .../classes/sun/print/UnixPrintService.java   |  8 +++---
++ .../unix/native/common/awt/fontpath.c         | 25 ++++++++---------
++ .../util/prefs/FileSystemPreferences.java     |  2 +-
++ .../classes/sun/security/krb5/Config.java     |  2 +-
++ .../internal/ccache/FileCredentialsCache.java |  2 +-
++ .../security/smartcardio/PlatformPCSC.java    |  4 +--
++ .../linux/native/libsaproc/symtab.c           |  2 +-
++ .../jpackage/internal/LinuxDebBundler.java    |  6 ++--
++ .../internal/LinuxPackageBundler.java         |  4 +--
++ .../jdk/jpackage/internal/resources/utils.sh  |  2 +-
++ 26 files changed, 74 insertions(+), 73 deletions(-)
++
++diff --git a/src/hotspot/os/linux/os_linux.cpp b/src/hotspot/os/linux/os_linux.cpp
++index 31fc882b0344..e815b0afd7c1 100644
++--- a/src/hotspot/os/linux/os_linux.cpp
+++++ b/src/hotspot/os/linux/os_linux.cpp
++@@ -1382,7 +1382,13 @@ const char* os::dll_file_extension() { return ".so"; }
++ 
++ // This must be hard coded because it's the system's temporary
++ // directory not the java application's temp directory, ala java.io.tmpdir.
++-const char* os::get_temp_directory() { return "/tmp"; }
+++const char* os::get_temp_directory() {
+++#ifndef __ANDROID__
+++  return "/tmp";
+++#else
+++  return "@TERMUX_PREFIX@/tmp";
+++#endif
+++}
++ 
++ static bool file_exists(const char* filename) {
++   struct stat statbuf;
++@@ -2238,7 +2244,7 @@ void os::Linux::print_process_memory_info(outputStream* st) {
++ }
++ 
++ bool os::Linux::print_ld_preload_file(outputStream* st) {
++-  return _print_ascii_file("/etc/ld.so.preload", st, "/etc/ld.so.preload:");
+++  return _print_ascii_file("@TERMUX_PREFIX@/etc/ld.so.preload", st, "@TERMUX_PREFIX@/etc/ld.so.preload:");
++ }
++ 
++ void os::Linux::print_uptime_info(outputStream* st) {
++diff --git a/src/hotspot/share/utilities/virtualizationSupport.cpp b/src/hotspot/share/utilities/virtualizationSupport.cpp
++index 5a2e8651efaf..971f74af5605 100644
++--- a/src/hotspot/share/utilities/virtualizationSupport.cpp
+++++ b/src/hotspot/share/utilities/virtualizationSupport.cpp
++@@ -52,7 +52,7 @@ void VirtualizationSupport::initialize() {
++     // the open-vm-tools have a different guest lib name
++     // on some distros e.g. SLES12 the open-vm-tools are the default,
++     // so use the different libname as a fallback
++-    dlHandle = os::dll_load("/usr/lib64/libguestlib.so.0", ebuf, sizeof ebuf);
+++    dlHandle = os::dll_load("@TERMUX_PREFIX@/lib/libguestlib.so.0", ebuf, sizeof ebuf);
++   }
++ #endif
++   if (dlHandle == NULL) {
++diff --git a/src/java.base/linux/classes/sun/nio/fs/LinuxFileSystem.java b/src/java.base/linux/classes/sun/nio/fs/LinuxFileSystem.java
++index a3153b31329f..594a26c111ce 100644
++--- a/src/java.base/linux/classes/sun/nio/fs/LinuxFileSystem.java
+++++ b/src/java.base/linux/classes/sun/nio/fs/LinuxFileSystem.java
++@@ -118,7 +118,7 @@ class LinuxFileSystem extends UnixFileSystem {
++      */
++     @Override
++     List<UnixMountEntry> getMountEntries() {
++-        return getMountEntries("/etc/mtab");
+++        return getMountEntries("@TERMUX_PREFIX@/etc/mtab");
++     }
++ 
++ 
++diff --git a/src/java.base/linux/classes/sun/nio/fs/LinuxFileSystemProvider.java b/src/java.base/linux/classes/sun/nio/fs/LinuxFileSystemProvider.java
++index a1c2aed4bd24..23c7df39c31b 100644
++--- a/src/java.base/linux/classes/sun/nio/fs/LinuxFileSystemProvider.java
+++++ b/src/java.base/linux/classes/sun/nio/fs/LinuxFileSystemProvider.java
++@@ -104,7 +104,7 @@ class LinuxFileSystemProvider extends UnixFileSystemProvider {
++     FileTypeDetector getFileTypeDetector() {
++         String userHome = StaticProperty.userHome();
++         Path userMimeTypes = Path.of(userHome, ".mime.types");
++-        Path etcMimeTypes = Path.of("/etc/mime.types");
+++        Path etcMimeTypes = Path.of("@TERMUX_PREFIX@/etc/mime.types");
++ 
++         return chain(new MimeTypesFileTypeDetector(userMimeTypes),
++                      new MimeTypesFileTypeDetector(etcMimeTypes));
++diff --git a/src/java.base/share/classes/sun/net/www/MimeTable.java b/src/java.base/share/classes/sun/net/www/MimeTable.java
++index b20566bdc8b9..8c3b8cfcd02c 100644
++--- a/src/java.base/share/classes/sun/net/www/MimeTable.java
+++++ b/src/java.base/share/classes/sun/net/www/MimeTable.java
++@@ -57,9 +57,8 @@ public class MimeTable implements FileNameMap {
++                 mailcapLocations = new String[] {
++                     System.getProperty("user.mailcap"),
++                     StaticProperty.userHome() + "/.mailcap",
++-                    "/etc/mailcap",
++-                    "/usr/etc/mailcap",
++-                    "/usr/local/etc/mailcap",
+++                    "@TERMUX_PREFIX@/etc/mailcap",
+++                    "@TERMUX_PREFIX@/local/etc/mailcap",
++                 };
++                 return null;
++             }
++diff --git a/src/java.base/share/classes/sun/security/jca/ProviderConfig.java b/src/java.base/share/classes/sun/security/jca/ProviderConfig.java
++index 7a9022e8769c..9964dd4a6224 100644
++--- a/src/java.base/share/classes/sun/security/jca/ProviderConfig.java
+++++ b/src/java.base/share/classes/sun/security/jca/ProviderConfig.java
++@@ -98,7 +98,7 @@ final class ProviderConfig {
++         Boolean o = AccessController.doPrivileged(
++                                 new PrivilegedAction<Boolean>() {
++             public Boolean run() {
++-                File file = new File("/usr/lib/libpkcs11.so");
+++                File file = new File("@TERMUX_PREFIX@/lib/libpkcs11.so");
++                 if (file.exists() == false) {
++                     return Boolean.FALSE;
++                 }
++diff --git a/src/java.base/unix/classes/sun/net/dns/ResolverConfigurationImpl.java b/src/java.base/unix/classes/sun/net/dns/ResolverConfigurationImpl.java
++index d46138f23b74..4d626da8f2cc 100644
++--- a/src/java.base/unix/classes/sun/net/dns/ResolverConfigurationImpl.java
+++++ b/src/java.base/unix/classes/sun/net/dns/ResolverConfigurationImpl.java
++@@ -64,7 +64,7 @@ public class ResolverConfigurationImpl
++ 
++         try {
++             BufferedReader in =
++-                new BufferedReader(new FileReader("/etc/resolv.conf"));
+++                new BufferedReader(new FileReader("@TERMUX_PREFIX@/etc/resolv.conf"));
++             String line;
++             while ((line = in.readLine()) != null) {
++                 int maxvalues = maxperkeyword;
++diff --git a/src/java.base/unix/native/libjava/ProcessImpl_md.c b/src/java.base/unix/native/libjava/ProcessImpl_md.c
++index 3854f36daf08..8d9cc64e178b 100644
++--- a/src/java.base/unix/native/libjava/ProcessImpl_md.c
+++++ b/src/java.base/unix/native/libjava/ProcessImpl_md.c
++@@ -230,7 +230,7 @@ xmalloc(JNIEnv *env, size_t size)
++ static const char*
++ defaultPath(void)
++ {
++-    return ":/bin:/usr/bin";
+++    return ":@TERMUX_PREFIX@/bin";
++ }
++ 
++ static const char*
++diff --git a/src/java.base/unix/native/libjava/TimeZone_md.c b/src/java.base/unix/native/libjava/TimeZone_md.c
++index 94dfc207f965..0d0ffdab0ee9 100644
++--- a/src/java.base/unix/native/libjava/TimeZone_md.c
+++++ b/src/java.base/unix/native/libjava/TimeZone_md.c
++@@ -60,9 +60,9 @@ static char *isFileIdentical(char* buf, size_t size, char *pathname);
++ #endif
++ 
++ #if defined(__linux__) || defined(_ALLBSD_SOURCE)
++-static const char *ETC_TIMEZONE_FILE = "/etc/timezone";
++-static const char *ZONEINFO_DIR = "/usr/share/zoneinfo";
++-static const char *DEFAULT_ZONEINFO_FILE = "/etc/localtime";
+++static const char *ETC_TIMEZONE_FILE = "@TERMUX_PREFIX@/etc/timezone";
+++static const char *ZONEINFO_DIR = "@TERMUX_PREFIX@/share/zoneinfo";
+++static const char *DEFAULT_ZONEINFO_FILE = "@TERMUX_PREFIX@/etc/localtime";
++ #else
++ static const char *SYS_INIT_FILE = "/etc/default/init";
++ static const char *ZONEINFO_DIR = "/usr/share/lib/zoneinfo";
++diff --git a/src/java.desktop/share/classes/com/sun/java/swing/plaf/gtk/Metacity.java b/src/java.desktop/share/classes/com/sun/java/swing/plaf/gtk/Metacity.java
++index 042ca1878747..0be96292517a 100644
++--- a/src/java.desktop/share/classes/com/sun/java/swing/plaf/gtk/Metacity.java
+++++ b/src/java.desktop/share/classes/com/sun/java/swing/plaf/gtk/Metacity.java
++@@ -482,13 +482,10 @@ class Metacity implements SynthConstants {
++                 String[] dirs = new String[] {
++                     userHome + sep + ".themes",
++                     System.getProperty("swing.metacitythemedir"),
++-                    "/usr/X11R6/share/themes",
++-                    "/usr/X11R6/share/gnome/themes",
++-                    "/usr/local/share/themes",
++-                    "/usr/local/share/gnome/themes",
++-                    "/usr/share/themes",
++-                    "/usr/gnome/share/themes",  // Debian/Redhat/Solaris
++-                    "/opt/gnome2/share/themes"  // SuSE
+++                    "@TERMUX_PREFIX@/share/themes",
+++                    "@TERMUX_PREFIX@/share/gnome/themes",
+++                    "@TERMUX_PREFIX@/local/share/themes",
+++                    "@TERMUX_PREFIX@/local/share/gnome/themes",
++                 };
++ 
++                 URL themeDir = null;
++diff --git a/src/java.desktop/share/classes/com/sun/media/sound/SoftSynthesizer.java b/src/java.desktop/share/classes/com/sun/media/sound/SoftSynthesizer.java
++index 70b8b622df9c..7dc6d97d452c 100644
++--- a/src/java.desktop/share/classes/com/sun/media/sound/SoftSynthesizer.java
+++++ b/src/java.desktop/share/classes/com/sun/media/sound/SoftSynthesizer.java
++@@ -685,11 +685,11 @@ public final class SoftSynthesizer implements AudioSynthesizer,
++ 
++                         File[] systemSoundFontsDir = new File[] {
++                             /* Arch, Fedora, Mageia */
++-                            new File("/usr/share/soundfonts/"),
++-                            new File("/usr/local/share/soundfonts/"),
+++                            new File("@TERMUX_PREFIX@/share/soundfonts/"),
+++                            new File("@TERMUX_PREFIX@/local/share/soundfonts/"),
++                             /* Debian, Gentoo, OpenSUSE, Ubuntu */
++-                            new File("/usr/share/sounds/sf2/"),
++-                            new File("/usr/local/share/sounds/sf2/"),
+++                            new File("@TERMUX_PREFIX@/share/sounds/sf2/"),
+++                            new File("@TERMUX_PREFIX@/local/share/sounds/sf2/"),
++                         };
++ 
++                         /*
++diff --git a/src/java.desktop/share/classes/sun/font/SunFontManager.java b/src/java.desktop/share/classes/sun/font/SunFontManager.java
++index 870009612f77..824a07db37c4 100644
++--- a/src/java.desktop/share/classes/sun/font/SunFontManager.java
+++++ b/src/java.desktop/share/classes/sun/font/SunFontManager.java
++@@ -3448,7 +3448,7 @@ public abstract class SunFontManager implements FontSupport, FontManagerForSGE {
++     public void register1dot0Fonts() {
++         AccessController.doPrivileged(new PrivilegedAction<Void>() {
++             public Void run() {
++-                String type1Dir = "/usr/openwin/lib/X11/fonts/Type1";
+++                String type1Dir = "@TERMUX_PREFIX@/openwin/lib/X11/fonts/Type1";
++                 registerFontsInDir(type1Dir, true, Font2D.TYPE1_RANK,
++                                    false, false);
++                 return null;
++diff --git a/src/java.desktop/share/classes/sun/print/PSPrinterJob.java b/src/java.desktop/share/classes/sun/print/PSPrinterJob.java
++index 4645aabd8615..2d3d6bfccc00 100644
++--- a/src/java.desktop/share/classes/sun/print/PSPrinterJob.java
+++++ b/src/java.desktop/share/classes/sun/print/PSPrinterJob.java
++@@ -1630,7 +1630,7 @@ public class PSPrinterJob extends RasterPrinterJob {
++         String osname = System.getProperty("os.name");
++         if (osname.equals("Linux") || osname.contains("OS X")) {
++             execCmd = new String[ncomps];
++-            execCmd[n++] = "/usr/bin/lpr";
+++            execCmd[n++] = "@TERMUX_PREFIX@/bin/lpr";
++             if ((pFlags & PRINTER) != 0) {
++                 execCmd[n++] = "-P" + printer;
++             }
++@@ -1652,7 +1652,7 @@ public class PSPrinterJob extends RasterPrinterJob {
++         } else {
++             ncomps+=1; //add 1 arg for lp
++             execCmd = new String[ncomps];
++-            execCmd[n++] = "/usr/bin/lp";
+++            execCmd[n++] = "@TERMUX_PREFIX@/bin/lp";
++             execCmd[n++] = "-c";           // make a copy of the spool file
++             if ((pFlags & PRINTER) != 0) {
++                 execCmd[n++] = "-d" + printer;
++diff --git a/src/java.desktop/unix/classes/sun/awt/X11/MotifColorUtilities.java b/src/java.desktop/unix/classes/sun/awt/X11/MotifColorUtilities.java
++index f42a180532e3..9acecdb14c4a 100644
++--- a/src/java.desktop/unix/classes/sun/awt/X11/MotifColorUtilities.java
+++++ b/src/java.desktop/unix/classes/sun/awt/X11/MotifColorUtilities.java
++@@ -412,7 +412,7 @@ class MotifColorUtilities {
++         if (!pFile.exists())
++         {
++             // Must be a system palette
++-            paletteFilePath = "/usr/dt/palettes/" + paletteFile;
+++            paletteFilePath = "@TERMUX_PREFIX@/dt/palettes/" + paletteFile;
++             pFile = new File(paletteFilePath);
++             if (!pFile.exists())
++             {
++diff --git a/src/java.desktop/unix/classes/sun/print/PrintServiceLookupProvider.java b/src/java.desktop/unix/classes/sun/print/PrintServiceLookupProvider.java
++index 79fc2fd15eef..7fb0c803ccd1 100644
++--- a/src/java.desktop/unix/classes/sun/print/PrintServiceLookupProvider.java
+++++ b/src/java.desktop/unix/classes/sun/print/PrintServiceLookupProvider.java
++@@ -81,10 +81,10 @@ public class PrintServiceLookupProvider extends PrintServiceLookup
++ 
++     // List of commands used to deal with the printer queues on AIX
++     String[] lpNameComAix = {
++-      "/usr/bin/lsallq",
++-      "/usr/bin/lpstat -W -p|/usr/bin/expand|/usr/bin/cut -f1 -d' '",
++-      "/usr/bin/lpstat -W -d|/usr/bin/expand|/usr/bin/cut -f1 -d' '",
++-      "/usr/bin/lpstat -W -v"
+++      "@TERMUX_PREFIX@/bin/lsallq",
+++      "@TERMUX_PREFIX@/bin/lpstat -W -p|@TERMUX_PREFIX@/bin/expand|@TERMUX_PREFIX@/bin/cut -f1 -d' '",
+++      "@TERMUX_PREFIX@/bin/lpstat -W -d|@TERMUX_PREFIX@/bin/expand|@TERMUX_PREFIX@/bin/cut -f1 -d' '",
+++      "@TERMUX_PREFIX@/bin/lpstat -W -v"
++     };
++     private static final int aix_lsallq = 0;
++     private static final int aix_lpstat_p = 1;
++@@ -172,13 +172,13 @@ public class PrintServiceLookupProvider extends PrintServiceLookup
++     static int cmdIndex = UNINITIALIZED;
++ 
++     String[] lpcFirstCom = {
++-        "/usr/sbin/lpc status | grep : | sed -ne '1,1 s/://p'",
++-        "/usr/sbin/lpc status | grep -E '^[ 0-9a-zA-Z_-]*@' | awk -F'@' '{print $1}'"
+++        "@TERMUX_PREFIX@/bin/lpc status | grep : | sed -ne '1,1 s/://p'",
+++        "@TERMUX_PREFIX@/bin/lpc status | grep -E '^[ 0-9a-zA-Z_-]*@' | awk -F'@' '{print $1}'"
++     };
++ 
++     String[] lpcAllCom = {
++-        "/usr/sbin/lpc status all | grep : | sed -e 's/://'",
++-        "/usr/sbin/lpc status all | grep -E '^[ 0-9a-zA-Z_-]*@' | awk -F'@' '{print $1}' | sort"
+++        "@TERMUX_PREFIX@/bin/lpc status all | grep : | sed -e 's/://'",
+++        "@TERMUX_PREFIX@/bin/lpc status all | grep -E '^[ 0-9a-zA-Z_-]*@' | awk -F'@' '{print $1}' | sort"
++     };
++ 
++     String[] lpcNameCom = {
++@@ -188,7 +188,7 @@ public class PrintServiceLookupProvider extends PrintServiceLookup
++ 
++ 
++     static int getBSDCommandIndex() {
++-        String command  = "/usr/sbin/lpc status all";
+++        String command  = "@TERMUX_PREFIX@/bin/lpc status all";
++         String[] names = execCmd(command);
++ 
++         if ((names == null) || (names.length == 0)) {
++@@ -757,7 +757,7 @@ public class PrintServiceLookupProvider extends PrintServiceLookup
++       if (cmdIndex == UNINITIALIZED) {
++         cmdIndex = getBSDCommandIndex();
++       }
++-      String command = "/usr/sbin/lpc status " + name + lpcNameCom[cmdIndex];
+++      String command = "@TERMUX_PREFIX@/bin/lpc status " + name + lpcNameCom[cmdIndex];
++       String[] result = execCmd(command);
++ 
++       if (result == null || !(result[0].equals(name))) {
++@@ -779,7 +779,7 @@ public class PrintServiceLookupProvider extends PrintServiceLookup
++ 
++     static String getDefaultPrinterNameSysV() {
++         String defaultPrinter = "lp";
++-        String command = "/usr/bin/lpstat -d";
+++        String command = "@TERMUX_PREFIX@/bin/lpstat -d";
++ 
++         String [] names = execCmd(command);
++         if (names == null || names.length == 0) {
++@@ -801,7 +801,7 @@ public class PrintServiceLookupProvider extends PrintServiceLookup
++ 
++     private PrintService getNamedPrinterNameSysV(String name) {
++ 
++-        String command = "/usr/bin/lpstat -v " + name;
+++        String command = "@TERMUX_PREFIX@/bin/lpstat -v " + name;
++         String []result = execCmd(command);
++ 
++         if (result == null || result[0].indexOf("unknown printer") > 0) {
++@@ -813,7 +813,7 @@ public class PrintServiceLookupProvider extends PrintServiceLookup
++ 
++     private String[] getAllPrinterNamesSysV() {
++         String defaultPrinter = "lp";
++-        String command = "/usr/bin/lpstat -v|/usr/bin/expand|/usr/bin/cut -f3 -d' ' |/usr/bin/cut -f1 -d':' | /usr/bin/sort";
+++        String command = "@TERMUX_PREFIX@/bin/lpstat -v|@TERMUX_PREFIX@/bin/expand|@TERMUX_PREFIX@/bin/cut -f3 -d' ' |@TERMUX_PREFIX@/bin/cut -f1 -d':' | @TERMUX_PREFIX@/bin/sort";
++ 
++         String [] names = execCmd(command);
++         ArrayList<String> printerNames = new ArrayList<>();
++@@ -870,7 +870,7 @@ public class PrintServiceLookupProvider extends PrintServiceLookup
++         try {
++             final String[] cmd = new String[3];
++             if (isAIX()) {
++-                cmd[0] = "/usr/bin/sh";
+++                cmd[0] = "@TERMUX_PREFIX@/bin/sh";
++                 cmd[1] = "-c";
++                 cmd[2] = "env LC_ALL=C " + command;
++             } else {
++diff --git a/src/java.desktop/unix/classes/sun/print/UnixPrintJob.java b/src/java.desktop/unix/classes/sun/print/UnixPrintJob.java
++index 4f810d947d49..41ae71fb589d 100644
++--- a/src/java.desktop/unix/classes/sun/print/UnixPrintJob.java
+++++ b/src/java.desktop/unix/classes/sun/print/UnixPrintJob.java
++@@ -882,7 +882,7 @@ public class UnixPrintJob implements CancelablePrintJob {
++             ncomps+=1;
++         }
++         execCmd = new String[ncomps];
++-        execCmd[n++] = "/usr/bin/lpr";
+++        execCmd[n++] = "@TERMUX_PREFIX@/bin/lpr";
++         if ((pFlags & PRINTER) != 0) {
++             execCmd[n++] = "-P" + printer;
++         }
++diff --git a/src/java.desktop/unix/classes/sun/print/UnixPrintService.java b/src/java.desktop/unix/classes/sun/print/UnixPrintService.java
++index 2a11a6e2d058..d07da584dc7b 100644
++--- a/src/java.desktop/unix/classes/sun/print/UnixPrintService.java
+++++ b/src/java.desktop/unix/classes/sun/print/UnixPrintService.java
++@@ -231,7 +231,7 @@ public class UnixPrintService implements PrintService, AttributeUpdater,
++                 PrintServiceLookupProvider.getBSDCommandIndex();
++         }
++ 
++-        String command = "/usr/sbin/lpc status " + printer
+++        String command = "@TERMUX_PREFIX@/bin/lpc status " + printer
++             + lpcStatusCom[PrintServiceLookupProvider.cmdIndex];
++         String[] results= PrintServiceLookupProvider.execCmd(command);
++ 
++@@ -280,7 +280,7 @@ public class UnixPrintService implements PrintService, AttributeUpdater,
++ 
++     private PrinterIsAcceptingJobs getPrinterIsAcceptingJobsAIX() {
++         // On AIX there should not be a blank after '-a'.
++-        String command = "/usr/bin/lpstat -a" + printer;
+++        String command = "@TERMUX_PREFIX@/bin/lpstat -a" + printer;
++         String[] results= PrintServiceLookupProvider.execCmd(command);
++ 
++         // Remove headers and bogus entries added by remote printers.
++@@ -336,7 +336,7 @@ public class UnixPrintService implements PrintService, AttributeUpdater,
++         }
++ 
++         int qlen = 0;
++-        String command = "/usr/sbin/lpc status " + printer
+++        String command = "@TERMUX_PREFIX@/bin/lpc status " + printer
++             + lpcQueueCom[PrintServiceLookupProvider.cmdIndex];
++         String[] results = PrintServiceLookupProvider.execCmd(command);
++ 
++@@ -365,7 +365,7 @@ public class UnixPrintService implements PrintService, AttributeUpdater,
++ 
++     private QueuedJobCount getQueuedJobCountAIX() {
++         // On AIX there should not be a blank after '-a'.
++-        String command = "/usr/bin/lpstat -a" + printer;
+++        String command = "@TERMUX_PREFIX@/bin/lpstat -a" + printer;
++         String[] results=  PrintServiceLookupProvider.execCmd(command);
++ 
++         // Remove headers and bogus entries added by remote printers.
++diff --git a/src/java.desktop/unix/native/common/awt/fontpath.c b/src/java.desktop/unix/native/common/awt/fontpath.c
++index fa5fc982327e..222af29cef33 100644
++--- a/src/java.desktop/unix/native/common/awt/fontpath.c
+++++ b/src/java.desktop/unix/native/common/awt/fontpath.c
++@@ -66,19 +66,18 @@ extern Display *awt_display;
++  * various flavors of Linux
++  */
++ static char *fullLinuxFontPath[] = {
++-    "/usr/X11R6/lib/X11/fonts/TrueType",  /* RH 7.1+ */
++-    "/usr/X11R6/lib/X11/fonts/truetype",  /* SuSE */
++-    "/usr/X11R6/lib/X11/fonts/tt",
++-    "/usr/X11R6/lib/X11/fonts/TTF",
++-    "/usr/X11R6/lib/X11/fonts/OTF",       /* RH 9.0 (but empty!) */
++-    "/usr/share/fonts/ja/TrueType",       /* RH 7.2+ */
++-    "/usr/share/fonts/truetype",
++-    "/usr/share/fonts/ko/TrueType",       /* RH 9.0 */
++-    "/usr/share/fonts/zh_CN/TrueType",    /* RH 9.0 */
++-    "/usr/share/fonts/zh_TW/TrueType",    /* RH 9.0 */
++-    "/var/lib/defoma/x-ttcidfont-conf.d/dirs/TrueType", /* Debian */
++-    "/usr/X11R6/lib/X11/fonts/Type1",
++-    "/usr/share/fonts/default/Type1",     /* RH 9.0 */
+++    "@TERMUX_PREFIX@/share/fonts/TrueType",
+++    "@TERMUX_PREFIX@/share/fonts/truetype",
+++    "@TERMUX_PREFIX@/share/fonts/tt",
+++    "@TERMUX_PREFIX@/share/fonts/TTF",
+++    "@TERMUX_PREFIX@/share/fonts/OTF",
+++    "@TERMUX_PREFIX@/share/fonts/ja/TrueType",
+++    "@TERMUX_PREFIX@/share/fonts/ko/TrueType",
+++    "@TERMUX_PREFIX@/share/fonts/zh_CN/TrueType",
+++    "@TERMUX_PREFIX@/share/fonts/zh_TW/TrueType",
+++    "@TERMUX_PREFIX@/share/fonts/Type1",
+++    "@TERMUX_PREFIX@/share/fonts/default/Type1",
+++    "/system/fonts",
++     NULL, /* terminates the list */
++ };
++ #elif defined(_AIX)
++diff --git a/src/java.prefs/unix/classes/java/util/prefs/FileSystemPreferences.java b/src/java.prefs/unix/classes/java/util/prefs/FileSystemPreferences.java
++index b30a23465c52..f92872239dfd 100644
++--- a/src/java.prefs/unix/classes/java/util/prefs/FileSystemPreferences.java
+++++ b/src/java.prefs/unix/classes/java/util/prefs/FileSystemPreferences.java
++@@ -182,7 +182,7 @@ class FileSystemPreferences extends AbstractPreferences {
++         AccessController.doPrivileged(new PrivilegedAction<Void>() {
++             public Void run() {
++                 String systemPrefsDirName =
++-                  System.getProperty("java.util.prefs.systemRoot","/etc/.java");
+++                  System.getProperty("java.util.prefs.systemRoot","@TERMUX_PREFIX@/etc/.java");
++                 systemRootDir =
++                      new File(systemPrefsDirName, ".systemPrefs");
++                 // Attempt to create root dir if it does not yet exist.
++diff --git a/src/java.security.jgss/share/classes/sun/security/krb5/Config.java b/src/java.security.jgss/share/classes/sun/security/krb5/Config.java
++index fadb115245f5..b7c4b392d705 100644
++--- a/src/java.security.jgss/share/classes/sun/security/krb5/Config.java
+++++ b/src/java.security.jgss/share/classes/sun/security/krb5/Config.java
++@@ -930,7 +930,7 @@ public class Config {
++         } else if (osname.contains("OS X")) {
++             name = findMacosConfigFile();
++         } else {
++-            name =  "/etc/krb5.conf";
+++            name =  "@TERMUX_PREFIX@/etc/krb5.conf";
++         }
++         if (DEBUG) {
++             System.out.println("Native config name: " + name);
++diff --git a/src/java.security.jgss/share/classes/sun/security/krb5/internal/ccache/FileCredentialsCache.java b/src/java.security.jgss/share/classes/sun/security/krb5/internal/ccache/FileCredentialsCache.java
++index f0379c04e915..6b37c25f3250 100644
++--- a/src/java.security.jgss/share/classes/sun/security/krb5/internal/ccache/FileCredentialsCache.java
+++++ b/src/java.security.jgss/share/classes/sun/security/krb5/internal/ccache/FileCredentialsCache.java
++@@ -600,7 +600,7 @@ public class FileCredentialsCache extends CredentialsCache
++                     (new InputStreamReader(p.getInputStream(), ISO_8859_1));
++             String s1 = null;
++             if ((command.length == 1) &&
++-                (command[0].equals("/usr/bin/env"))) {
+++                (command[0].equals("@TERMUX_PREFIX@/bin/env"))) {
++                 while ((s1 = commandResult.readLine()) != null) {
++                     if (s1.length() >= 11) {
++                         if ((s1.substring(0, 11)).equalsIgnoreCase
++diff --git a/src/java.smartcardio/unix/classes/sun/security/smartcardio/PlatformPCSC.java b/src/java.smartcardio/unix/classes/sun/security/smartcardio/PlatformPCSC.java
++index 38fa3da9ea76..f7dc33afb91a 100644
++--- a/src/java.smartcardio/unix/classes/sun/security/smartcardio/PlatformPCSC.java
+++++ b/src/java.smartcardio/unix/classes/sun/security/smartcardio/PlatformPCSC.java
++@@ -46,8 +46,8 @@ class PlatformPCSC {
++ 
++     private final static String PROP_NAME = "sun.security.smartcardio.library";
++ 
++-    private final static String LIB1 = "/usr/$LIBISA/libpcsclite.so";
++-    private final static String LIB2 = "/usr/local/$LIBISA/libpcsclite.so";
+++    private final static String LIB1 = "@TERMUX_PREFIX@/lib/libpcsclite.so";
+++    private final static String LIB2 = "@TERMUX_PREFIX@/local/lib/libpcsclite.so";
++     private final static String PCSC_FRAMEWORK = "/System/Library/Frameworks/PCSC.framework/Versions/Current/PCSC";
++ 
++     PlatformPCSC() {
++diff --git a/src/jdk.hotspot.agent/linux/native/libsaproc/symtab.c b/src/jdk.hotspot.agent/linux/native/libsaproc/symtab.c
++index e147cdecaf9b..7a9b9d2706f7 100644
++--- a/src/jdk.hotspot.agent/linux/native/libsaproc/symtab.c
+++++ b/src/jdk.hotspot.agent/linux/native/libsaproc/symtab.c
++@@ -53,7 +53,7 @@ typedef struct symtab {
++ // should be possible to change this, but in a Java environment there
++ // is no obvious place to put a user interface to do it.  Maybe this
++ // could be set with an environment variable.
++-static const char debug_file_directory[] = "/usr/lib/debug";
+++static const char debug_file_directory[] = "@TERMUX_PREFIX@/lib/debug";
++ 
++ /* The CRC used in gnu_debuglink, retrieved from
++    http://sourceware.org/gdb/current/onlinedocs/gdb/Separate-Debug-Files.html#Separate-Debug-Files. */
++diff --git a/src/jdk.jpackage/linux/classes/jdk/jpackage/internal/LinuxDebBundler.java b/src/jdk.jpackage/linux/classes/jdk/jpackage/internal/LinuxDebBundler.java
++index a4533b101c93..4aefbd7888c2 100644
++--- a/src/jdk.jpackage/linux/classes/jdk/jpackage/internal/LinuxDebBundler.java
+++++ b/src/jdk.jpackage/linux/classes/jdk/jpackage/internal/LinuxDebBundler.java
++@@ -414,7 +414,7 @@ public class LinuxDebBundler extends LinuxPackageBundler {
++         final String installDir = LINUX_INSTALL_DIR.fetchFrom(params);
++ 
++         if (!StandardBundlerParam.isRuntimeInstaller(params)
++-                || (isInstallDirInUsrTree(installDir) || installDir.startsWith("/usr/"))) {
+++                || (isInstallDirInUsrTree(installDir) || installDir.startsWith("@TERMUX_PREFIX@/"))) {
++             debianFiles.add(new DebianFile(
++                     getConfig_CopyrightFile(params),
++                     "resource.copyright-file"));
++@@ -446,8 +446,8 @@ public class LinuxDebBundler extends LinuxPackageBundler {
++         final String packageName = PACKAGE_NAME.fetchFrom(params);
++ 
++         final Path installPath;
++-        if (isInstallDirInUsrTree(installDir) || installDir.startsWith("/usr/")) {
++-            installPath = Path.of("/usr/share/doc/", packageName, "copyright");
+++        if (isInstallDirInUsrTree(installDir) || installDir.startsWith("@TERMUX_PREFIX@/")) {
+++            installPath = Path.of("@TERMUX_PREFIX@/share/doc/", packageName, "copyright");
++         } else {
++             installPath = Path.of(installDir, packageName, "share/doc/copyright");
++         }
++diff --git a/src/jdk.jpackage/linux/classes/jdk/jpackage/internal/LinuxPackageBundler.java b/src/jdk.jpackage/linux/classes/jdk/jpackage/internal/LinuxPackageBundler.java
++index ce327cd2743c..624452b526e9 100644
++--- a/src/jdk.jpackage/linux/classes/jdk/jpackage/internal/LinuxPackageBundler.java
+++++ b/src/jdk.jpackage/linux/classes/jdk/jpackage/internal/LinuxPackageBundler.java
++@@ -340,7 +340,7 @@ abstract class LinuxPackageBundler extends AbstractBundler {
++     }
++ 
++     protected static boolean isInstallDirInUsrTree(String installDir) {
++-        return Set.of("/usr/local", "/usr").contains(installDir);
+++        return Set.of("@TERMUX_PREFIX@/local", "@TERMUX_PREFIX@").contains(installDir);
++     }
++ 
++     private final BundlerParamInfo<String> packageName;
++@@ -368,7 +368,7 @@ abstract class LinuxPackageBundler extends AbstractBundler {
++                      }
++                      return dir;
++                  }
++-                 return "/opt";
+++                 return "@TERMUX_PREFIX@/opt";
++              },
++             (s, p) -> s
++     );
++diff --git a/src/jdk.jpackage/linux/classes/jdk/jpackage/internal/resources/utils.sh b/src/jdk.jpackage/linux/classes/jdk/jpackage/internal/resources/utils.sh
++index 1ed96076282c..7673dc0e9b48 100644
++--- a/src/jdk.jpackage/linux/classes/jdk/jpackage/internal/resources/utils.sh
+++++ b/src/jdk.jpackage/linux/classes/jdk/jpackage/internal/resources/utils.sh
++@@ -92,7 +92,7 @@ _uninstall_default_mime_handler ()
++ #
++ uninstall_default_mime_handler ()
++ {
++-  for f in /usr/share/applications/defaults.list /usr/local/share/applications/defaults.list; do
+++  for f in @TERMUX_PREFIX@/share/applications/defaults.list @TERMUX_PREFIX@/local/share/applications/defaults.list; do
++     _uninstall_default_mime_handler "$f" "$@"
++   done
++ }
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0031-elfFile.hpp-no-need-to-define-ELF-32-64-_ST_TYPE-on-.patch b/packages/openjdk-17/0031-elfFile.hpp-no-need-to-define-ELF-32-64-_ST_TYPE-on-.patch
+new file mode 100644
+index 000000000..fed0945b6
+--- /dev/null
++++ b/packages/openjdk-17/0031-elfFile.hpp-no-need-to-define-ELF-32-64-_ST_TYPE-on-.patch
+@@ -0,0 +1,35 @@
++From 01b6f110577b2fff0b8d9649abd1f49fdac26e6a Mon Sep 17 00:00:00 2001
++From: Henrik Grimler <grimler@termux.dev>
++Date: Sat, 4 Feb 2023 22:45:13 +0100
++Subject: [PATCH] elfFile.hpp: no need to define ELF{32,64}_ST_TYPE on android
++
++As the elf.h header already provides defintions.
++---
++ src/hotspot/share/utilities/elfFile.hpp | 4 ++--
++ 1 file changed, 2 insertions(+), 2 deletions(-)
++
++diff --git a/src/hotspot/share/utilities/elfFile.hpp b/src/hotspot/share/utilities/elfFile.hpp
++index 0db847238456..96307e112dd8 100644
++--- a/src/hotspot/share/utilities/elfFile.hpp
+++++ b/src/hotspot/share/utilities/elfFile.hpp
++@@ -46,7 +46,7 @@ typedef Elf64_Shdr      Elf_Shdr;
++ typedef Elf64_Phdr      Elf_Phdr;
++ typedef Elf64_Sym       Elf_Sym;
++ 
++-#if !defined(_ALLBSD_SOURCE) || defined(__APPLE__)
+++#if (!defined(_ALLBSD_SOURCE) || defined(__APPLE__)) && !defined(__ANDROID__)
++ #define ELF_ST_TYPE ELF64_ST_TYPE
++ #endif
++ 
++@@ -62,7 +62,7 @@ typedef Elf32_Shdr      Elf_Shdr;
++ typedef Elf32_Phdr      Elf_Phdr;
++ typedef Elf32_Sym       Elf_Sym;
++ 
++-#if !defined(_ALLBSD_SOURCE) || defined(__APPLE__)
+++#if (!defined(_ALLBSD_SOURCE) || defined(__APPLE__)) && !defined(__ANDROID__)
++ #define ELF_ST_TYPE ELF32_ST_TYPE
++ #endif
++ #endif
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0032-os-linux-add-getloadavg-implementation-for-android.patch b/packages/openjdk-17/0032-os-linux-add-getloadavg-implementation-for-android.patch
+new file mode 100644
+index 000000000..7055a4143
+--- /dev/null
++++ b/packages/openjdk-17/0032-os-linux-add-getloadavg-implementation-for-android.patch
+@@ -0,0 +1,37 @@
++From 5ac1dc92c8abd3289bd40da1b4e4793019e8a64b Mon Sep 17 00:00:00 2001
++From: Henrik Grimler <grimler@termux.dev>
++Date: Sun, 5 Feb 2023 09:14:50 +0100
++Subject: [PATCH] os: linux: add getloadavg implementation for android
++
++---
++ src/hotspot/os/linux/os_linux.cpp | 13 +++++++++++++
++ 1 file changed, 13 insertions(+)
++
++diff --git a/src/hotspot/os/linux/os_linux.cpp b/src/hotspot/os/linux/os_linux.cpp
++index e815b0afd7c1..06a5d0bf8245 100644
++--- a/src/hotspot/os/linux/os_linux.cpp
+++++ b/src/hotspot/os/linux/os_linux.cpp
++@@ -5234,7 +5234,20 @@ bool os::is_thread_cpu_time_supported() {
++ // Linux doesn't yet have a (official) notion of processor sets,
++ // so just return the system wide load average.
++ int os::loadavg(double loadavg[], int nelem) {
+++#if defined(__ANDROID__) && __ANDROID_API__ < 29
+++  if (nelem < 0) return -1;
+++  if (nelem > 3) nelem = 3;
+++
+++  struct sysinfo si;
+++  if (sysinfo(&si) == -1) return -1;
+++
+++  for (int i = 0; i < nelem; ++i) {
+++    loadavg[i] = (double)(si.loads[i]) / (double)(1 << SI_LOAD_SHIFT);
+++  }
+++  return nelem;
+++#else
++   return ::getloadavg(loadavg, nelem);
+++#endif
++ }
++ 
++ void os::pause() {
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0033-os-linux-use-getpagesize-instad-of-SHMLBA.patch b/packages/openjdk-17/0033-os-linux-use-getpagesize-instad-of-SHMLBA.patch
+new file mode 100644
+index 000000000..622a7939d
+--- /dev/null
++++ b/packages/openjdk-17/0033-os-linux-use-getpagesize-instad-of-SHMLBA.patch
+@@ -0,0 +1,35 @@
++From d8ac751229b8d4795a04f1d8ec08d03d8916b5f9 Mon Sep 17 00:00:00 2001
++From: Henrik Grimler <grimler@termux.dev>
++Date: Sun, 5 Feb 2023 09:21:57 +0100
++Subject: [PATCH] os: linux: use getpagesize() instad of SHMLBA
++
++Since the latter is not defined on android.
++---
++ src/hotspot/os/linux/os_linux.cpp | 4 ++--
++ 1 file changed, 2 insertions(+), 2 deletions(-)
++
++diff --git a/src/hotspot/os/linux/os_linux.cpp b/src/hotspot/os/linux/os_linux.cpp
++index 06a5d0bf8245..4a48a8a69f76 100644
++--- a/src/hotspot/os/linux/os_linux.cpp
+++++ b/src/hotspot/os/linux/os_linux.cpp
++@@ -3912,7 +3912,7 @@ void os::large_page_init() {
++ static char* shmat_with_alignment(int shmid, size_t bytes, size_t alignment) {
++   assert(is_aligned(bytes, alignment), "Must be divisible by the alignment");
++ 
++-  if (!is_aligned(alignment, SHMLBA)) {
+++  if (!is_aligned(alignment, getpagesize())) {
++     assert(false, "Code below assumes that alignment is at least SHMLBA aligned");
++     return NULL;
++   }
++@@ -3948,7 +3948,7 @@ static char* shmat_with_alignment(int shmid, size_t bytes, size_t alignment) {
++ }
++ 
++ static char* shmat_at_address(int shmid, char* req_addr) {
++-  if (!is_aligned(req_addr, SHMLBA)) {
+++  if (!is_aligned(req_addr, getpagesize())) {
++     assert(false, "Requested address needs to be SHMLBA aligned");
++     return NULL;
++   }
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0034-libjava-change-return-type-of-strerror_r.patch b/packages/openjdk-17/0034-libjava-change-return-type-of-strerror_r.patch
+new file mode 100644
+index 000000000..fe047e982
+--- /dev/null
++++ b/packages/openjdk-17/0034-libjava-change-return-type-of-strerror_r.patch
+@@ -0,0 +1,60 @@
++From 5e5592026e96de8dfcab9ffad09bdf571343fe62 Mon Sep 17 00:00:00 2001
++From: Henrik Grimler <grimler@termux.dev>
++Date: Sun, 5 Feb 2023 11:47:24 +0100
++Subject: [PATCH] libjava: change return type of strerror_r
++
++Later versions of android uses the GNU style and returns a char
++pointer.  Adjust jni function to match this.
++---
++ src/java.base/share/native/libjava/jni_util.h      | 2 +-
++ src/java.base/unix/native/libjava/ProcessImpl_md.c | 7 +++----
++ src/java.base/unix/native/libjava/jni_util_md.c    | 2 +-
++ 3 files changed, 5 insertions(+), 6 deletions(-)
++
++diff --git a/src/java.base/share/native/libjava/jni_util.h b/src/java.base/share/native/libjava/jni_util.h
++index bd815e6f1b90..86c542f4cc1d 100644
++--- a/src/java.base/share/native/libjava/jni_util.h
+++++ b/src/java.base/share/native/libjava/jni_util.h
++@@ -339,7 +339,7 @@ void buildJniFunctionName(const char *sym, const char *cname,
++ JNIEXPORT size_t JNICALL
++ getLastErrorString(char *buf, size_t len);
++ 
++-JNIEXPORT int JNICALL
+++JNIEXPORT char * JNICALL
++ getErrorString(int err, char *buf, size_t len);
++ 
++ #ifdef STATIC_BUILD
++diff --git a/src/java.base/unix/native/libjava/ProcessImpl_md.c b/src/java.base/unix/native/libjava/ProcessImpl_md.c
++index 8d9cc64e178b..949b3f2aef09 100644
++--- a/src/java.base/unix/native/libjava/ProcessImpl_md.c
+++++ b/src/java.base/unix/native/libjava/ProcessImpl_md.c
++@@ -325,10 +325,9 @@ throwIOException(JNIEnv *env, int errnum, const char *defaultDetail)
++     char tmpbuf[1024];
++     jstring s;
++ 
++-    if (errnum != 0) {
++-        int ret = getErrorString(errnum, tmpbuf, sizeof(tmpbuf));
++-        if (ret != EINVAL)
++-            detail = tmpbuf;
+++    if (errnum != EINVAL) {
+++        getErrorString(errnum, tmpbuf, sizeof(tmpbuf));
+++        detail = tmpbuf;
++     }
++     /* ASCII Decimal representation uses 2.4 times as many bits as binary. */
++     fmtsize = sizeof(IOE_FORMAT) + strlen(detail) + 3 * sizeof(errnum);
++diff --git a/src/java.base/unix/native/libjava/jni_util_md.c b/src/java.base/unix/native/libjava/jni_util_md.c
++index 335637b0a115..8f4a76d3b975 100644
++--- a/src/java.base/unix/native/libjava/jni_util_md.c
+++++ b/src/java.base/unix/native/libjava/jni_util_md.c
++@@ -61,7 +61,7 @@ getLastErrorString(char *buf, size_t len)
++     return strlen(buf);
++ }
++ 
++-JNIEXPORT int JNICALL
+++JNIEXPORT char * JNICALL
++ getErrorString(int err, char *buf, size_t len)
++ {
++     if (err == 0 || len < 1) return 0;
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0035-LauncherCommon.gmk-use-ifeq.endif-instead-of-ifeq.fi.patch b/packages/openjdk-17/0035-LauncherCommon.gmk-use-ifeq.endif-instead-of-ifeq.fi.patch
+new file mode 100644
+index 000000000..2d5bb65a5
+--- /dev/null
++++ b/packages/openjdk-17/0035-LauncherCommon.gmk-use-ifeq.endif-instead-of-ifeq.fi.patch
+@@ -0,0 +1,26 @@
++From c25f5329466a8bf736422a5875219e2616bee1ad Mon Sep 17 00:00:00 2001
++From: Duy Tran Khanh <40482367+khanhduytran0@users.noreply.github.com>
++Date: Wed, 9 Jun 2021 08:15:49 +0700
++Subject: [PATCH] LauncherCommon.gmk: use `ifeq...endif` instead of `ifeq...fi`
++
++gmk is not C/C++ :trollface:
++---
++ make/common/modules/LauncherCommon.gmk | 2 +-
++ 1 file changed, 1 insertion(+), 1 deletion(-)
++
++diff --git a/make/common/modules/LauncherCommon.gmk b/make/common/modules/LauncherCommon.gmk
++index 2210fcbecc8e..6c93887b43d8 100644
++--- a/make/common/modules/LauncherCommon.gmk
+++++ b/make/common/modules/LauncherCommon.gmk
++@@ -51,7 +51,7 @@ LAUNCHER_CFLAGS += -I$(TOPDIR)/src/java.base/share/native/launcher \
++ 
++ ifeq ($(call isTargetOs, ios), true)
++   LAUNCHER_CFLAGS += -I$(TOPDIR)/src/java.base/macosx/native/libjli
++-fi
+++endif
++ 
++ MACOSX_PLIST_DIR := $(TOPDIR)/src/java.base/macosx/native/launcher
++ JAVA_MANIFEST := $(TOPDIR)/src/java.base/windows/native/launcher/java.manifest
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0036-make-cflags-handle-arm-like-other-arches.patch b/packages/openjdk-17/0036-make-cflags-handle-arm-like-other-arches.patch
+new file mode 100644
+index 000000000..3e5945ec4
+--- /dev/null
++++ b/packages/openjdk-17/0036-make-cflags-handle-arm-like-other-arches.patch
+@@ -0,0 +1,31 @@
++From 2230460cbf0015f7d37b627aad0841e9b17b30ce Mon Sep 17 00:00:00 2001
++From: Henrik Grimler <grimler@termux.dev>
++Date: Mon, 13 Feb 2023 13:49:47 +0100
++Subject: [PATCH] make: cflags: handle arm like other arches
++
++---
++ make/autoconf/flags-cflags.m4 | 8 +-------
++ 1 file changed, 1 insertion(+), 7 deletions(-)
++
++diff --git a/make/autoconf/flags-cflags.m4 b/make/autoconf/flags-cflags.m4
++index c0626e8f9a45..3cd0550eb314 100644
++--- a/make/autoconf/flags-cflags.m4
+++++ b/make/autoconf/flags-cflags.m4
++@@ -58,13 +58,7 @@ AC_DEFUN([FLAGS_SETUP_SHARED_LIBS],
++       SET_SHARED_LIBRARY_NAME='-Wl,-soname=[$]1'
++       SET_SHARED_LIBRARY_MAPFILE='-Wl,-version-script=[$]1'
++ 
++-      # arm specific settings
++-      if test "x$OPENJDK_TARGET_CPU" = "xarm"; then
++-        # '-Wl,-z,origin' isn't used on arm.
++-        SET_SHARED_LIBRARY_ORIGIN='-Wl,-rpath,\$$$$ORIGIN[$]1'
++-      else
++-        SET_SHARED_LIBRARY_ORIGIN="-Wl,-z,origin $SET_EXECUTABLE_ORIGIN"
++-      fi
+++      SET_SHARED_LIBRARY_ORIGIN="-Wl,-z,origin $SET_EXECUTABLE_ORIGIN"
++     fi
++ 
++   elif test "x$TOOLCHAIN_TYPE" = xxlc; then
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0037-Fix-bugs-in-File.getCanonicalPath.patch b/packages/openjdk-17/0037-Fix-bugs-in-File.getCanonicalPath.patch
+new file mode 100644
+index 000000000..d2a86c3d4
+--- /dev/null
++++ b/packages/openjdk-17/0037-Fix-bugs-in-File.getCanonicalPath.patch
+@@ -0,0 +1,225 @@
++From d7ca77f10800afc2485fe162869cf23b4d0c90f7 Mon Sep 17 00:00:00 2001
++From: agnostic-apollo <agnosticapollo@gmail.com>
++Date: Thu, 28 Mar 2024 18:46:02 +0100
++Subject: [PATCH] Fix bugs in File.getCanonicalPath()
++
++1. If path length is `>= PATH_MAX` (4096) characters, return error.
++2. If any path component length is `> NAME_MAX` (255) characters, return
++   error.
++3. If path has consecutive path separators e.g. `//`, remove them before
++   processing and returning.
++4. Ensure leading double dot `..` path components are removed since a
++   canonical path returned by canonicalize() must not contain them.
++---
++ .../unix/native/libjava/canonicalize_md.c     | 102 +++++++++++++++---
++ 1 file changed, 87 insertions(+), 15 deletions(-)
++
++diff --git a/src/java.base/unix/native/libjava/canonicalize_md.c b/src/java.base/unix/native/libjava/canonicalize_md.c
++index 2bb896bf32d7..7210f305282f 100644
++--- a/src/java.base/unix/native/libjava/canonicalize_md.c
+++++ b/src/java.base/unix/native/libjava/canonicalize_md.c
++@@ -33,6 +33,7 @@
++ #include <sys/stat.h>
++ #include <errno.h>
++ #include <limits.h>
+++#include <unistd.h>
++ #if !defined(_ALLBSD_SOURCE)
++ #include <alloca.h>
++ #endif
++@@ -43,6 +44,38 @@
++          defined in the java.io.File class */
++ 
++ 
+++/* Remove consecutive duplicate path separators `//` and the trailing
+++  path separator if not rootfs `/`. */
+++
+++char* removeDupSeparator(char *path)
+++{
+++    if (path == NULL || *path == '\0') {
+++        return NULL;
+++    }
+++
+++    char *in = path;
+++    char *out = path;
+++    char prevChar = 0;
+++    int n = 0;
+++    for (; *in != '\0'; in++) {
+++        // Remove duplicate path separators
+++        if (!(*in == '/' && prevChar == '/')) {
+++            *(out++) = *in;
+++            n++;
+++        }
+++        prevChar = *in;
+++    }
+++    *out = '\0';
+++
+++    // Remove the trailing path separator, except when path equals `/`
+++    if (prevChar == '/' && n > 1) {
+++        *(--out) = '\0';
+++    }
+++
+++    return path;
+++}
+++
+++
++ /* Check the given name sequence to see if it can be further collapsed.
++    Return zero if not, otherwise return the number of names in the sequence. */
++ 
++@@ -62,7 +95,9 @@ collapsible(char *names)
++         n++;
++         while (*p) {
++             if (*p == '/') {
++-                p++;
+++                while (*p && *p == '/') {
+++                    p++;
+++                }
++                 break;
++             }
++             p++;
++@@ -85,7 +120,9 @@ splitNames(char *names, char **ix)
++         ix[i++] = p++;
++         while (*p) {
++             if (*p == '/') {
++-                *p++ = '\0';
+++                while (*p && *p == '/') {
+++                    *p++ = '\0';
+++                }
++                 break;
++             }
++             p++;
++@@ -128,11 +165,13 @@ joinNames(char *names, int nc, char **ix)
++ static void
++ collapse(char *path)
++ {
+++    // Remove consecutive duplicate path separators '/' regardless of if single or double dot components exist
+++    removeDupSeparator(path);
+++
++     char *names = (path[0] == '/') ? path + 1 : path; /* Preserve first '/' */
++     int nc;
++     char **ix;
++     int i, j;
++-    char *p, *q;
++ 
++     nc = collapsible(names);
++     if (nc < 2) return;         /* Nothing to do */
++@@ -145,7 +184,7 @@ collapse(char *path)
++         /* Find next occurrence of "." or ".." */
++         do {
++             char *p = ix[i];
++-            if (p[0] == '.') {
+++            if (p != NULL && p[0] == '.') {
++                 if (p[1] == '\0') {
++                     dots = 1;
++                     break;
++@@ -166,14 +205,14 @@ collapse(char *path)
++             ix[i] = 0;
++         }
++         else {
++-            /* If there is a preceding name, remove both that name and this
++-               instance of ".."; otherwise, leave the ".." as is */
+++            /* Remove this instance of ".." and any preceding name if one exists */
++             for (j = i - 1; j >= 0; j--) {
++                 if (ix[j]) break;
++             }
+++
+++            ix[i] = 0;
++             if (j < 0) continue;
++             ix[j] = 0;
++-            ix[i] = 0;
++         }
++         /* i will be incremented at the top of the loop */
++     }
++@@ -195,7 +234,7 @@ JDK_Canonicalize(const char *orig, char *out, int len)
++         return -1;
++     }
++ 
++-    if (strlen(orig) > PATH_MAX) {
+++    if (strlen(orig) >= PATH_MAX) {
++         errno = ENAMETOOLONG;
++         return -1;
++     }
++@@ -206,15 +245,20 @@ JDK_Canonicalize(const char *orig, char *out, int len)
++         collapse(out);
++         return 0;
++     } else {
+++        if (errno == EINVAL || errno == ELOOP || errno == ENAMETOOLONG || errno == ENOMEM) {
+++            return -1;
+++        }
+++
++         /* Something's bogus in the original path, so remove names from the end
++            until either some subpath works or we run out of names */
++         char *p, *end, *r = NULL;
++-        char path[PATH_MAX + 1];
+++        char path[PATH_MAX];
++ 
++-        // strlen(orig) <= PATH_MAX, see above
++-        strncpy(path, orig, PATH_MAX);
++-        // append null for == case
++-        path[PATH_MAX] = '\0';
+++        strncpy(path, orig, sizeof(path));
+++        if (path[PATH_MAX - 1] != '\0') {
+++            errno = ENAMETOOLONG;
+++            return -1;
+++         }
++         end = path + strlen(path);
++ 
++         for (p = end; p > path;) {
++@@ -242,6 +286,7 @@ JDK_Canonicalize(const char *orig, char *out, int len)
++             }
++         }
++ 
+++        size_t nameMax;
++         if (r != NULL) {
++             /* Append unresolved subpath to resolved subpath */
++             int rn = strlen(r);
++@@ -250,18 +295,45 @@ JDK_Canonicalize(const char *orig, char *out, int len)
++                 errno = ENAMETOOLONG;
++                 return -1;
++             }
+++            nameMax = pathconf(r, _PC_NAME_MAX);
+++
++             if ((rn > 0) && (r[rn - 1] == '/') && (*p == '/')) {
++                 /* Avoid duplicate slashes */
++                 p++;
++             }
++             strcpy(r + rn, p);
++             collapse(r);
++-            return 0;
++         } else {
++             /* Nothing resolved, so just return the original path */
+++            nameMax = pathconf("/", _PC_NAME_MAX);
++             strcpy(out, path);
++             collapse(out);
++-            return 0;
++         }
+++
+++        // Ensure resolve path length is "< PATH_MAX" and collapse() did not overwrite
+++        // terminating null byte
+++        char resolvedPath[PATH_MAX];
+++        strncpy(resolvedPath, out, sizeof(resolvedPath));
+++        if (resolvedPath[PATH_MAX - 1] != '\0') {
+++            errno = ENAMETOOLONG;
+++            return -1;
+++        }
+++
+++        // Ensure resolve path does not contain any components who length is "> NAME_MAX"
+++        // If pathconf call failed with -1 or returned 0 in case of permission denial
+++        if (nameMax < 1) {
+++            nameMax = NAME_MAX;
+++        }
+++
+++        char *component;
+++        char *rest = resolvedPath;
+++        while ((component = strtok_r(rest, "/", &rest))) {
+++            if (strlen(component) > nameMax) {
+++                errno = ENAMETOOLONG;
+++                return -1;
+++            }
+++        }
+++
+++        return 0;
++     }
++ }
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0038-JvmMapfile.gmk-filter-same-symbols-for-linux-and-and.patch b/packages/openjdk-17/0038-JvmMapfile.gmk-filter-same-symbols-for-linux-and-and.patch
+new file mode 100644
+index 000000000..2d725a8cc
+--- /dev/null
++++ b/packages/openjdk-17/0038-JvmMapfile.gmk-filter-same-symbols-for-linux-and-and.patch
+@@ -0,0 +1,25 @@
++From ac7ca9573e061e5a3d89e8f502c86dd350125919 Mon Sep 17 00:00:00 2001
++From: Duy Tran Khanh <40482367+khanhduytran0@users.noreply.github.com>
++Date: Sat, 5 Jun 2021 17:25:37 +0700
++Subject: [PATCH] JvmMapfile.gmk: filter same symbols for linux and android
++
++---
++ make/hotspot/lib/JvmMapfile.gmk | 2 +-
++ 1 file changed, 1 insertion(+), 1 deletion(-)
++
++diff --git a/make/hotspot/lib/JvmMapfile.gmk b/make/hotspot/lib/JvmMapfile.gmk
++index 5cba93178c74..181e0db5c0eb 100644
++--- a/make/hotspot/lib/JvmMapfile.gmk
+++++ b/make/hotspot/lib/JvmMapfile.gmk
++@@ -52,7 +52,7 @@ endif
++ # Create a dynamic list of symbols from the built object files. This is highly
++ # platform dependent.
++ 
++-ifeq ($(call isTargetOs, linux), true)
+++ifeq ($(call isTargetOs, android linux), true)
++   DUMP_SYMBOLS_CMD := $(NM) --defined-only *.o
++   ifneq ($(FILTER_SYMBOLS_PATTERN), )
++     FILTER_SYMBOLS_PATTERN := $(FILTER_SYMBOLS_PATTERN)|
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0039-Fix-build-with-lld-17.patch b/packages/openjdk-17/0039-Fix-build-with-lld-17.patch
+new file mode 100644
+index 000000000..35a846d11
+--- /dev/null
++++ b/packages/openjdk-17/0039-Fix-build-with-lld-17.patch
+@@ -0,0 +1,28 @@
++From 9a2f49340af3294be5bee5ad786aef5275182e75 Mon Sep 17 00:00:00 2001
++From: agnostic-apollo <agnosticapollo@gmail.com>
++Date: Thu, 28 Mar 2024 18:52:49 +0100
++Subject: [PATCH] Fix build with lld 17
++
++Original Author: Dimitry Andric <dim@FreeBSD.org>
++
++https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=274109
++---
++ make/hotspot/lib/JvmMapfile.gmk | 2 +-
++ 1 file changed, 1 insertion(+), 1 deletion(-)
++
++diff --git a/make/hotspot/lib/JvmMapfile.gmk b/make/hotspot/lib/JvmMapfile.gmk
++index 181e0db5c0eb..c3936c74c748 100644
++--- a/make/hotspot/lib/JvmMapfile.gmk
+++++ b/make/hotspot/lib/JvmMapfile.gmk
++@@ -53,7 +53,7 @@ endif
++ # platform dependent.
++ 
++ ifeq ($(call isTargetOs, android linux), true)
++-  DUMP_SYMBOLS_CMD := $(NM) --defined-only *.o
+++  DUMP_SYMBOLS_CMD := $(NM) --extern-only --defined-only *.o
++   ifneq ($(FILTER_SYMBOLS_PATTERN), )
++     FILTER_SYMBOLS_PATTERN := $(FILTER_SYMBOLS_PATTERN)|
++   endif
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0040-Remove-sysThreadAvailableStackWithSlack-from-hotspot.patch b/packages/openjdk-17/0040-Remove-sysThreadAvailableStackWithSlack-from-hotspot.patch
+new file mode 100644
+index 000000000..1abf4fce2
+--- /dev/null
++++ b/packages/openjdk-17/0040-Remove-sysThreadAvailableStackWithSlack-from-hotspot.patch
+@@ -0,0 +1,36 @@
++From 9ad02b3db690bbde48ae03b26184192094f1a161 Mon Sep 17 00:00:00 2001
++From: agnostic-apollo <agnosticapollo@gmail.com>
++Date: Thu, 28 Mar 2024 18:52:49 +0100
++Subject: [PATCH] Remove sysThreadAvailableStackWithSlack from hotspot-symbols
++
++https://bugs.openjdk.org/browse/JDK-8296970
++
++https://bugs.openjdk.org/browse/JDK-4341971
++
++https://github.com/openjdk/jdk/commit/f662a060463c2982da40307a53d59e514390f60c
++---
++ make/data/hotspot-symbols/symbols-aix   | 1 -
++ make/data/hotspot-symbols/symbols-linux | 1 -
++ 2 files changed, 2 deletions(-)
++
++diff --git a/make/data/hotspot-symbols/symbols-aix b/make/data/hotspot-symbols/symbols-aix
++index 92703573a5f5..11dad0fece50 100644
++--- a/make/data/hotspot-symbols/symbols-aix
+++++ b/make/data/hotspot-symbols/symbols-aix
++@@ -24,4 +24,3 @@
++ JVM_handle_aix_signal
++ numa_error
++ numa_warn
++-sysThreadAvailableStackWithSlack
++diff --git a/make/data/hotspot-symbols/symbols-linux b/make/data/hotspot-symbols/symbols-linux
++index bbb0d35115fc..b0d802f1773f 100644
++--- a/make/data/hotspot-symbols/symbols-linux
+++++ b/make/data/hotspot-symbols/symbols-linux
++@@ -25,4 +25,3 @@ JVM_handle_linux_signal
++ JVM_IsUseContainerSupport
++ numa_error
++ numa_warn
++-sysThreadAvailableStackWithSlack
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0041-make-autoconf-define-ARM-for-arm-build-with-clang.patch b/packages/openjdk-17/0041-make-autoconf-define-ARM-for-arm-build-with-clang.patch
+new file mode 100644
+index 000000000..6d16dbfac
+--- /dev/null
++++ b/packages/openjdk-17/0041-make-autoconf-define-ARM-for-arm-build-with-clang.patch
+@@ -0,0 +1,37 @@
++From 58a290a32c05355aa4698188b5cbd4113fb8644f Mon Sep 17 00:00:00 2001
++From: Henrik Grimler <grimler@termux.dev>
++Date: Sun, 31 Mar 2024 12:02:51 +0200
++Subject: [PATCH] make: autoconf: define ARM for arm build with clang
++
++Fixes error like
++
++ad_arm.cpp:19849:4: error: "ARM must be defined"
++   ^
++1 warning and 1 error generated.
++gmake[3]: *** [lib/CompileJvm.gmk:143: /home/builder/.termux-build/openjdk-17/src/build/linux-arm-server-release/hotspot/variant-server/libjvm/objs/ad_arm.o] Error 1
++gmake[2]: *** [make/Main.gmk:252: hotspot-server-libs] Error 2
++---
++ make/autoconf/flags-cflags.m4 | 7 ++++++-
++ 1 file changed, 6 insertions(+), 1 deletion(-)
++
++diff --git a/make/autoconf/flags-cflags.m4 b/make/autoconf/flags-cflags.m4
++index 3cd0550eb314..1b2d520690ed 100644
++--- a/make/autoconf/flags-cflags.m4
+++++ b/make/autoconf/flags-cflags.m4
++@@ -715,7 +715,12 @@ AC_DEFUN([FLAGS_SETUP_CFLAGS_CPU_DEP],
++         $1_CFLAGS_CPU_JDK="${$1_CFLAGS_CPU_JDK} -fno-omit-frame-pointer"
++       fi
++     fi
++-
+++    if test "x$FLAGS_CPU" = xarm; then
+++      # For whatever reason arm build with clang fails with:
+++      #   ad_arm.cpp:19849:4: error: "ARM must be defined"
+++      # Fix by defining arm here as well.
+++      $1_CFLAGS_CPU_JVM="-DARM"
+++    fi
++   elif test "x$TOOLCHAIN_TYPE" = xxlc; then
++     if test "x$FLAGS_CPU" = xppc64; then
++       $1_CFLAGS_CPU_JVM="-qarch=ppc64"
++-- 
++2.44.0
++
+diff --git a/packages/openjdk-17/0042-Fix-hardcoded-paths-in-jdk.attach.patch b/packages/openjdk-17/0042-Fix-hardcoded-paths-in-jdk.attach.patch
+new file mode 100644
+index 000000000..d96f00f28
+--- /dev/null
++++ b/packages/openjdk-17/0042-Fix-hardcoded-paths-in-jdk.attach.patch
+@@ -0,0 +1,22 @@
++From e7570675c4db70ea7314ae342def2445b0eea3c8 Mon Sep 17 00:00:00 2001
++From: Chongyun Lee <45286352+licy183@users.noreply.github.com>
++Date: Tue, 3 Sep 2024 12:34:31 +0800
++Subject: [PATCH] Fix: hardcoded paths in jdk.attach
++
++---
++ .../linux/classes/sun/tools/attach/VirtualMachineImpl.java      | 2 +-
++ 1 file changed, 1 insertion(+), 1 deletion(-)
++
++diff --git a/src/jdk.attach/linux/classes/sun/tools/attach/VirtualMachineImpl.java b/src/jdk.attach/linux/classes/sun/tools/attach/VirtualMachineImpl.java
++index a5d743a2635..3d32c514f54 100644
++--- a/src/jdk.attach/linux/classes/sun/tools/attach/VirtualMachineImpl.java
+++++ b/src/jdk.attach/linux/classes/sun/tools/attach/VirtualMachineImpl.java
++@@ -46,7 +46,7 @@ public class VirtualMachineImpl extends HotSpotVirtualMachine {
++     // location is the same for all processes, otherwise the tools
++     // will not be able to find all Hotspot processes.
++     // Any changes to this needs to be synchronized with HotSpot.
++-    private static final String tmpdir = "/tmp";
+++    private static final String tmpdir = "@TERMUX_PREFIX@/tmp";
++     String socket_path;
++     /**
++      * Attaches to the target VM
+diff --git a/packages/openjdk-17/0043-Add-option-_proc_full-to-javac.patch b/packages/openjdk-17/0043-Add-option-_proc_full-to-javac.patch
+new file mode 100644
+index 000000000..cbd6e92d7
+--- /dev/null
++++ b/packages/openjdk-17/0043-Add-option-_proc_full-to-javac.patch
+@@ -0,0 +1,145 @@
++From e1fc904e7b7aa51163452f9a2246d03b11bd2dfd Mon Sep 17 00:00:00 2001
++From: Andrew Lu <andrewlu@openjdk.org>
++Date: Thu, 25 Jan 2024 02:25:40 +0000
++Subject: [PATCH 1/2] 8308245: Add -proc:full to describe current default
++ annotation processing policy
++
++Backport-of: 42ecc8a37ffc7e4ad7beb49cac7d821c00a5568e
++---
++ .../com/sun/tools/javac/main/Option.java      |  2 +-
++ .../environment/round/TestContext.java        |  2 +-
++ .../processing/options/TestProcOption.java    | 41 +++++++++++++++++++
++ 3 files changed, 43 insertions(+), 2 deletions(-)
++ create mode 100644 test/langtools/tools/javac/processing/options/TestProcOption.java
++
++diff --git a/src/jdk.compiler/share/classes/com/sun/tools/javac/main/Option.java b/src/jdk.compiler/share/classes/com/sun/tools/javac/main/Option.java
++index a6d050b0a6f..695292c9e03 100644
++--- a/src/jdk.compiler/share/classes/com/sun/tools/javac/main/Option.java
+++++ b/src/jdk.compiler/share/classes/com/sun/tools/javac/main/Option.java
++@@ -285,7 +285,7 @@ public void process(OptionHelper helper, String option, String arg) throws Inval
++         }
++     },
++ 
++-    PROC("-proc:", "opt.proc.none.only", STANDARD, BASIC,  ONEOF, "none", "only"),
+++    PROC("-proc:", "opt.proc.none.only", STANDARD, BASIC, ONEOF, "none", "only", "full"),
++ 
++     PROCESSOR("-processor", "opt.arg.class.list", "opt.processor", STANDARD, BASIC),
++ 
++diff --git a/test/langtools/tools/javac/processing/environment/round/TestContext.java b/test/langtools/tools/javac/processing/environment/round/TestContext.java
++index f572d2d9c73..4d0b1674ecc 100644
++--- a/test/langtools/tools/javac/processing/environment/round/TestContext.java
+++++ b/test/langtools/tools/javac/processing/environment/round/TestContext.java
++@@ -31,7 +31,7 @@
++  *          jdk.compiler/com.sun.tools.javac.processing
++  *          jdk.compiler/com.sun.tools.javac.util
++  * @build JavacTestingAbstractProcessor TestContext
++- * @compile/process -processor TestContext -XprintRounds TestContext
+++ * @compile/process -processor TestContext -XprintRounds -proc:full TestContext
++  */
++ 
++ import java.io.*;
++diff --git a/test/langtools/tools/javac/processing/options/TestProcOption.java b/test/langtools/tools/javac/processing/options/TestProcOption.java
++new file mode 100644
++index 00000000000..882077a00c3
++--- /dev/null
+++++ b/test/langtools/tools/javac/processing/options/TestProcOption.java
++@@ -0,0 +1,41 @@
+++/*
+++ * Copyright (c) 2023, Oracle and/or its affiliates. All rights reserved.
+++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+++ *
+++ * This code is free software; you can redistribute it and/or modify it
+++ * under the terms of the GNU General Public License version 2 only, as
+++ * published by the Free Software Foundation.
+++ *
+++ * This code is distributed in the hope that it will be useful, but WITHOUT
+++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+++ * version 2 for more details (a copy is included in the LICENSE file that
+++ * accompanied this code).
+++ *
+++ * You should have received a copy of the GNU General Public License version
+++ * 2 along with this work; if not, write to the Free Software Foundation,
+++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+++ *
+++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+++ * or visit www.oracle.com if you need additional information or have any
+++ * questions.
+++ */
+++
+++/*
+++ * @test
+++ * @bug 8308245
+++ * @summary Test trivial handling of -proc:full option
+++ * @compile -proc:full TestProcOption.java
+++ * @run main TestProcOption
+++ */
+++
+++/*
+++ * The test verifies that compilation takes place when -proc:full is used.
+++ */
+++public class TestProcOption {
+++    private TestProcOption(){};
+++
+++    public static void main(String... args) {
+++        ; // do nothing
+++    }
+++}
++
++From 99afe5f127ca4f9f63ce951948ddcec783aa2a94 Mon Sep 17 00:00:00 2001
++From: Andrew Lu <andrewlu@openjdk.org>
++Date: Mon, 29 Jan 2024 08:24:55 +0000
++Subject: [PATCH 2/2] 8309870: Using -proc:full should be considered requesting
++ explicit annotation processing
++
++Backport-of: 3ce1240ca1b4139980444c171e317f4bfeff9314
++---
++ .../classes/com/sun/tools/javac/main/JavaCompiler.java     | 5 ++++-
++ .../share/classes/com/sun/tools/javac/main/Option.java     | 7 ++++++-
++ 2 files changed, 10 insertions(+), 2 deletions(-)
++
++diff --git a/src/jdk.compiler/share/classes/com/sun/tools/javac/main/JavaCompiler.java b/src/jdk.compiler/share/classes/com/sun/tools/javac/main/JavaCompiler.java
++index 1b8b7077ed8..2a8807b126b 100644
++--- a/src/jdk.compiler/share/classes/com/sun/tools/javac/main/JavaCompiler.java
+++++ b/src/jdk.compiler/share/classes/com/sun/tools/javac/main/JavaCompiler.java
++@@ -1,5 +1,5 @@
++ /*
++- * Copyright (c) 1999, 2021, Oracle and/or its affiliates. All rights reserved.
+++ * Copyright (c) 1999, 2023, Oracle and/or its affiliates. All rights reserved.
++  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++  *
++  * This code is free software; you can redistribute it and/or modify it
++@@ -1270,7 +1270,10 @@ static boolean explicitAnnotationProcessingRequested(Options options) {
++             options.isSet(PROCESSOR_PATH) ||
++             options.isSet(PROCESSOR_MODULE_PATH) ||
++             options.isSet(PROC, "only") ||
+++            options.isSet(PROC, "full") ||
+++            options.isSet(A) ||
++             options.isSet(XPRINT);
+++        // Skipping -XprintRounds and -XprintProcessorInfo
++     }
++ 
++     public void setDeferredDiagnosticHandler(Log.DeferredDiagnosticHandler deferredDiagnosticHandler) {
++diff --git a/src/jdk.compiler/share/classes/com/sun/tools/javac/main/Option.java b/src/jdk.compiler/share/classes/com/sun/tools/javac/main/Option.java
++index 695292c9e03..f88a328ca46 100644
++--- a/src/jdk.compiler/share/classes/com/sun/tools/javac/main/Option.java
+++++ b/src/jdk.compiler/share/classes/com/sun/tools/javac/main/Option.java
++@@ -1,5 +1,5 @@
++ /*
++- * Copyright (c) 2006, 2021, Oracle and/or its affiliates. All rights reserved.
+++ * Copyright (c) 2006, 2023, Oracle and/or its affiliates. All rights reserved.
++  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++  *
++  * This code is free software; you can redistribute it and/or modify it
++@@ -83,6 +83,11 @@
++  * {@code handleOption} then calls {@link #process process} providing a suitable
++  * {@link OptionHelper} to provide access the compiler state.
++  *
+++ *
+++ * <p>Maintenance note: when adding new annotation processing related
+++ * options, the list of options regarded as requesting explicit
+++ * annotation processing in JavaCompiler should be updated.
+++ *
++  * <p><b>This is NOT part of any supported API.
++  * If you write code that depends on this, you do so at your own
++  * risk.  This code and its internal interfaces are subject to change
+diff --git a/packages/openjdk-17/build.sh b/packages/openjdk-17/build.sh
+new file mode 100644
+index 000000000..8f5f17c52
+--- /dev/null
++++ b/packages/openjdk-17/build.sh
+@@ -0,0 +1,104 @@
++TERMUX_PKG_HOMEPAGE=https://github.com/openjdk/mobile
++TERMUX_PKG_DESCRIPTION="Java development kit and runtime"
++TERMUX_PKG_LICENSE="GPL-2.0"
++TERMUX_PKG_MAINTAINER="@termux"
++TERMUX_PKG_VERSION=17.0
++TERMUX_PKG_REVISION=38
++_COMMIT=82234f890786d49c49cf4ecbcb09c47bd9bea7ed
++TERMUX_PKG_SRCURL=https://github.com/openjdk/mobile/archive/$_COMMIT.tar.gz
++TERMUX_PKG_SHA256=5b298148a26e754120c6dfe699056d0609fc6ed92bfc858dc2ba4909ef6e791b
++TERMUX_PKG_AUTO_UPDATE=false
++TERMUX_PKG_DEPENDS="libandroid-shmem, libjpeg-turbo, zlib, libiconv"
++TERMUX_PKG_BUILD_DEPENDS="cups, fontconfig, libxrandr, libxt, xorgproto"
++TERMUX_PKG_BREAKS="openjdk"
++TERMUX_PKG_REPLACES="openjdk"
++TERMUX_PKG_PROVIDES="openjdk"
++# openjdk-17-x is recommended because X11 separation is still very experimental.
++TERMUX_PKG_RECOMMENDS="ca-certificates-java, openjdk-17-x, resolv-conf"
++TERMUX_PKG_SUGGESTS="cups"
++TERMUX_PKG_BUILD_IN_SRC=true
++TERMUX_PKG_HAS_DEBUG=false
++
++termux_step_pre_configure() {
++	unset JAVA_HOME
++}
++
++termux_step_configure() {
++	# workaround to force openjdk-17 to build in the docker image of termux-play-store
++	/usr/bin/sudo apt update
++	/usr/bin/sudo apt install -y openjdk-17-jdk
++	local jdk_ldflags="-L${TERMUX_PREFIX}/lib -Wl,-rpath=$TERMUX_PREFIX/lib/jvm/java-17-openjdk/lib -Wl,-rpath=${TERMUX_PREFIX}/lib -Wl,--enable-new-dtags"
++	bash ./configure \
++		--disable-precompiled-headers \
++		--disable-warnings-as-errors \
++		--enable-option-checking=fatal \
++		--openjdk-target=$TERMUX_HOST_PLATFORM \
++		--with-cups-include="$TERMUX_PREFIX/include" \
++		--with-debug-level=release \
++		--with-extra-cflags="$CFLAGS $CPPFLAGS -DLE_STANDALONE -D__ANDROID__=1 -D__TERMUX__=1" \
++		--with-extra-cxxflags="$CXXFLAGS $CPPFLAGS -DLE_STANDALONE -D__ANDROID__=1 -D__TERMUX__=1" \
++		--with-extra-ldflags="${jdk_ldflags} -Wl,--as-needed -landroid-shmem" \
++		--with-fontconfig-include="$TERMUX_PREFIX/include" \
++		--with-freetype-include="$TERMUX_PREFIX/include/freetype2" \
++		--with-freetype-lib="$TERMUX_PREFIX/lib" \
++		--with-giflib=system \
++		--with-jvm-variants=server \
++		--with-libjpeg=system \
++		--with-libpng=system \
++		--with-toolchain-type=clang \
++		--with-x="$TERMUX_PREFIX/include/X11" \
++		--with-zlib=system \
++		--x-includes="$TERMUX_PREFIX/include/X11" \
++		--x-libraries="$TERMUX_PREFIX/lib" \
++		AR="$AR" \
++		NM="$NM" \
++		OBJCOPY="$OBJCOPY" \
++		OBJDUMP="$OBJDUMP" \
++		STRIP="$STRIP" \
++		CXXFILT="llvm-cxxfilt" \
++		BUILD_CC="/usr/bin/clang-17" \
++		BUILD_CXX="/usr/bin/clang++-17" \
++		BUILD_NM="/usr/bin/llvm-nm-17" \
++		BUILD_AR="/usr/bin/llvm-ar-17" \
++		BUILD_OBJCOPY="/usr/bin/llvm-objcopy-17" \
++		BUILD_STRIP="/usr/bin/llvm-strip-17"
++}
++
++termux_step_make() {
++	cd build/linux-${TERMUX_ARCH/i686/x86}-server-release
++	make JOBS=1 images
++}
++
++termux_step_make_install() {
++	mkdir -p $TERMUX_PREFIX/lib/jvm/java-17-openjdk
++	cp -r build/linux-${TERMUX_ARCH/i686/x86}-server-release/images/jdk/* \
++		$TERMUX_PREFIX/lib/jvm/java-17-openjdk/
++	find $TERMUX_PREFIX/lib/jvm/java-17-openjdk/ -name "*.debuginfo" -delete
++
++	rm -Rf $TERMUX_PREFIX/lib/jvm/java-17-openjdk/demo/
++
++	# Dependent projects may need JAVA_HOME.
++	mkdir -p $TERMUX_PREFIX/lib/jvm/java-17-openjdk/etc/profile.d
++	echo "export JAVA_HOME=$TERMUX_PREFIX/lib/jvm/java-17-openjdk/" > \
++		$TERMUX_PREFIX/lib/jvm/java-17-openjdk/etc/profile.d/java.sh
++}
++
++termux_step_post_make_install() {
++	cd $TERMUX_PREFIX/lib/jvm/java-17-openjdk/man/man1
++	for manpage in *.1; do
++		gzip "$manpage"
++	done
++
++	binaries="$(find $TERMUX_PREFIX/lib/jvm/java-17-openjdk/bin -executable -type f | xargs -I{} basename "{}" | xargs echo)"
++	manpages="$(find $TERMUX_PREFIX/lib/jvm/java-17-openjdk/man/man1 -name "*.1.gz" | xargs -I{} basename "{}" | xargs echo)"
++
++	cd $TERMUX_PREFIX/bin
++	for binary in $binaries; do
++		ln -s -f $TERMUX_PREFIX/lib/jvm/java-17-openjdk/bin/$binary $binary
++	done
++
++	cd $TERMUX_PREFIX/share/man/man1
++	for manpage in $manpages; do
++		ln -s -f $TERMUX_PREFIX/lib/jvm/java-17-openjdk/man/man1/$manpage $manpage
++	done
++}
+diff --git a/packages/openjdk-17/hooks/debian/postinst.in b/packages/openjdk-17/hooks/debian/postinst.in
+new file mode 100644
+index 000000000..c0f6ccf6d
+--- /dev/null
++++ b/packages/openjdk-17/hooks/debian/postinst.in
+@@ -0,0 +1,18 @@
++#!@TERMUX_PREFIX@/bin/sh
++
++if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ]; then
++	if [ -x "@TERMUX_PREFIX@/bin/update-alternatives" ]; then
++		update-alternatives --install @TERMUX_PREFIX@/etc/profile.d/java.sh java-profile @TERMUX_PREFIX@/lib/jvm/java-17-openjdk/etc/profile.d/java.sh 40
++		for tool in @binaries@; do
++			update-alternatives --install \
++				@TERMUX_PREFIX@/bin/$tool $tool \
++				@TERMUX_PREFIX@/lib/jvm/java-17-openjdk/bin/$tool 40
++		done
++
++		for manpage in @manpages@; do
++			update-alternatives --install \
++				@TERMUX_PREFIX@/share/man/man1/$manpage $manpage \
++				@TERMUX_PREFIX@/lib/jvm/java-17-openjdk/man/man1/$manpage 60
++		done
++	fi
++fi
+diff --git a/packages/openjdk-17/hooks/debian/prerm.in b/packages/openjdk-17/hooks/debian/prerm.in
+new file mode 100644
+index 000000000..81cb0fd30
+--- /dev/null
++++ b/packages/openjdk-17/hooks/debian/prerm.in
+@@ -0,0 +1,14 @@
++#!@TERMUX_PREFIX@/bin/sh
++
++if [ "$1" != "upgrade" ]; then
++	if [ -x "@TERMUX_PREFIX@/bin/update-alternatives" ]; then
++		update-alternatives --remove java-profile @TERMUX_PREFIX@/lib/jvm/java-17-openjdk/etc/profile.d/java.sh
++		for tool in @binaries@; do
++			update-alternatives --remove $tool @TERMUX_PREFIX@/lib/jvm/java-17-openjdk/bin/$tool
++		done
++
++		for manpage in @manpages@; do
++			update-alternatives --remove $manpage @TERMUX_PREFIX@/lib/jvm/java-17-openjdk/man/man1/$manpage
++		done
++	fi
++fi
+diff --git a/packages/openjdk-17/hooks/pacman/postinst.in b/packages/openjdk-17/hooks/pacman/postinst.in
+new file mode 100644
+index 000000000..fd29901cc
+--- /dev/null
++++ b/packages/openjdk-17/hooks/pacman/postinst.in
+@@ -0,0 +1,25 @@
++#!@TERMUX_PREFIX@/bin/sh
++
++if [ -f @TERMUX_PREFIX@/etc/profile.d/java.sh ]; then
++	raelpath=$(readlink @TERMUX_PREFIX@/etc/profile.d/java.sh)
++	sp_raelpath=(${raelpath//// })
++	if [ "${sp_raelpath[-4]}" != "java-17-openjdk" ]; then
++		echo "==> Attention, the commands will be reconfigured to openjdk-17. If you want to stay on \"${sp_raelpath[-4]}\" then reinstall the package"
++	fi
++fi
++
++echo "==> Setting up the openjdk-17 package..."
++
++for i in @binaries@; do
++	ln -sfr "@TERMUX_PREFIX@/lib/jvm/java-17-openjdk/bin/${i}" "@TERMUX_PREFIX@/bin/${i}"
++done
++
++mkdir -p @TERMUX_PREFIX@/share/man/man1
++for i in @manpages@; do
++	ln -sfr "@TERMUX_PREFIX@/lib/jvm/java-17-openjdk/man/man1/${i}" "@TERMUX_PREFIX@/share/man/man1/${i}"
++done
++
++mkdir -p @TERMUX_PREFIX@/etc/profile.d
++ln -sfr @TERMUX_PREFIX@/lib/jvm/java-17-openjdk/etc/profile.d/java.sh @TERMUX_PREFIX@/etc/profile.d/java.sh
++
++echo "==> Done"
+diff --git a/packages/openjdk-17/hooks/pacman/prerm.in b/packages/openjdk-17/hooks/pacman/prerm.in
+new file mode 100644
+index 000000000..d8c26bf36
+--- /dev/null
++++ b/packages/openjdk-17/hooks/pacman/prerm.in
+@@ -0,0 +1,19 @@
++#!@TERMUX_PREFIX@/bin/sh
++
++if [ -f @TERMUX_PREFIX@/etc/profile.d/java.sh ]; then
++	raelpath=$(readlink @TERMUX_PREFIX@/etc/profile.d/java.sh)
++	sp_raelpath=(${raelpath//// })
++	if [ "${sp_raelpath[-4]}" != "java-17-openjdk" ]; then
++		return
++	fi
++fi
++
++for i in @binaries@; do
++	rm "@TERMUX_PREFIX@/bin/${i}"
++done
++
++for i in @manpages@; do
++	rm "@TERMUX_PREFIX@/share/man/man1/${i}"
++done
++
++rm @TERMUX_PREFIX@/etc/profile.d/java.sh
+diff --git a/packages/openjdk-17/openjdk-17-source.subpackage.sh b/packages/openjdk-17/openjdk-17-source.subpackage.sh
+new file mode 100644
+index 000000000..bce72a4d0
+--- /dev/null
++++ b/packages/openjdk-17/openjdk-17-source.subpackage.sh
+@@ -0,0 +1,4 @@
++TERMUX_SUBPKG_INCLUDE="lib/jvm/java-17-openjdk/lib/src.zip"
++TERMUX_SUBPKG_DESCRIPTION="Source files for openjdk-17"
++TERMUX_SUBPKG_PLATFORM_INDEPENDENT=true
++TERMUX_SUBPKG_DEPEND_ON_PARENT=false
+diff --git a/packages/openjdk-17/openjdk-17-x.subpackage.sh b/packages/openjdk-17/openjdk-17-x.subpackage.sh
+new file mode 100644
+index 000000000..6219c6106
+--- /dev/null
++++ b/packages/openjdk-17/openjdk-17-x.subpackage.sh
+@@ -0,0 +1,11 @@
++TERMUX_SUBPKG_INCLUDE="
++lib/jvm/java-17-openjdk/include/jawt.h
++lib/jvm/java-17-openjdk/include/linux/jawt_md.h
++lib/jvm/java-17-openjdk/jmods/java.desktop.jmod
++lib/jvm/java-17-openjdk/lib/libawt_xawt.so
++lib/jvm/java-17-openjdk/lib/libfontmanager.so
++lib/jvm/java-17-openjdk/lib/libjawt.so
++lib/jvm/java-17-openjdk/lib/libsplashscreen.so
++"
++TERMUX_SUBPKG_DESCRIPTION="Portion of openjdk-17 requiring X11 functionality"
++TERMUX_SUBPKG_DEPENDS="freetype, giflib, libandroid-shmem, libjpeg-turbo, libpng, libx11, libxext, libxi, libxrender, libxtst"
