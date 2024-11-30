@@ -1,0 +1,11 @@
+--- a/scripts/run-docker.sh
++++ b/scripts/run-docker.sh
+@@ -24,7 +24,7 @@ else
+ fi
+ 
+ : ${TERMUX_BUILDER_IMAGE_NAME:=ghcr.io/termux-play-store/package-builder}
+-: ${CONTAINER_NAME:=termux-package-builder}
++: ${CONTAINER_NAME:=termux-generator-package-builder}
+ 
+ USER=builder
+ 

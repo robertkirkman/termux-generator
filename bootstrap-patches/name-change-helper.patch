@@ -1,6 +1,13 @@
 --- a/packages/termux-tools/build.sh
 +++ b/packages/termux-tools/build.sh
-@@ -19,5 +19,13 @@ TERMUX_PKG_DEPENDS="coreutils, curl, dash, diffutils, findutils, gawk, grep, les
+@@ -13,11 +13,19 @@ TERMUX_PKG_SUGGESTS="termux-api"
+ # Some of these packages are not dependencies and used only to ensure
+ # that core packages are installed after upgrading (we removed busybox
+ # from essentials).
+-TERMUX_PKG_DEPENDS="coreutils, curl, dash, diffutils, findutils, gawk, grep, less, procps, psmisc, sed, tar, termux-am, termux-exec, util-linux"
++#TERMUX_PKG_DEPENDS="coreutils, curl, dash, diffutils, findutils, gawk, grep, less, procps, psmisc, sed, tar, termux-am, termux-exec, util-linux"
+ 
+ # Optional packages that are distributed as part of bootstrap archives.
  TERMUX_PKG_RECOMMENDS="ed, dos2unix, inetutils, net-tools, patch, unzip"
  
  termux_step_pre_configure() {
