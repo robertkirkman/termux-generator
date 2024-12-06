@@ -1,0 +1,15 @@
+diff --git a/packages/apt/build.sh b/packages/apt/build.sh
+index 74be001ef..ccc45e3cb 100644
+--- a/packages/apt/build.sh
++++ b/packages/apt/build.sh
+@@ -3,8 +3,8 @@ TERMUX_PKG_DESCRIPTION="Front-end for the dpkg package manager"
+ TERMUX_PKG_LICENSE="GPL-2.0"
+ TERMUX_PKG_MAINTAINER="@termux"
+ TERMUX_PKG_VERSION="2.9.10"
+-TERMUX_PKG_SRCURL=https://deb.debian.org/debian/pool/main/a/apt/apt_${TERMUX_PKG_VERSION}.tar.xz
+-TERMUX_PKG_SHA256=948ede1c9ebdc2fdbb91a12776f23b33df326ff01bcf0ce062e5bfe3260d1bcb
++TERMUX_PKG_SRCURL=https://http.kali.org/kali/pool/main/a/apt/apt_${TERMUX_PKG_VERSION}%2Bkali1.tar.xz
++TERMUX_PKG_SHA256=cd0afb8ce64dbec09ee2d116d9d4d200e0fcc0c8d29ceeed2c354ed0d52e4510
+ # apt-key requires utilities from coreutils, findutils, gpgv, grep, sed.
+ TERMUX_PKG_DEPENDS="coreutils, dpkg, findutils, gpgv, grep, libc++, libgnutls, liblzma, sed, termux-keyring, termux-licenses, xxhash"
+ TERMUX_PKG_BUILD_DEPENDS="docbook-xsl"
