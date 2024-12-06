@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+# set -x
 # Wechsel zum Verzeichnis, in dem das Skript liegt
 cd "$(dirname "$0")"
 
