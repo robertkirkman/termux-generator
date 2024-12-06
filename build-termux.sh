@@ -57,7 +57,7 @@ patch_bootstraps() {
         patch -p1 < "$patch" || exit 9
     done
     # $BSD_SED_BAKPATH darf nicht erweitert werden, sonst wird es zu "''" erweitert und funktioniert nicht!
-    sed -i $BSD_SED_BAKPATH "s/TERMUX_APP_PACKAGE=\"com.fezaan.termux\"/TERMUX_APP_PACKAGE=\"$TERMUX_APP_PACKAGE\"/g" scripts/properties.sh || exit 10
+    sed -i $BSD_SED_BAKPATH "s/TERMUX_APP_PACKAGE=\"com.termux\"/TERMUX_APP_PACKAGE=\"$TERMUX_APP_PACKAGE\"/g" scripts/properties.sh || exit 10
     popd
 }
 
@@ -108,16 +108,16 @@ patch_app() {
     # $BSD_SED_BAKPATH darf nicht erweitert werden, sonst wird es zu "''" erweitert und funktioniert nicht!
     find . -type f -exec file {} + | grep "text" | cut -d: -f1 | while read -r file; do
         sed -i $BSD_SED_BAKPATH -e "s/>Termux</>$TERMUX_APP_PACKAGE</g" \
-                  -e "s/\"Termux\"/\"$TERMUX_APP_PACKAGE\"/g" \
-                  -e "s/com\.termux/$TERMUX_APP_PACKAGE/g" \
-                  -e "s/com_termux/$TERMUX_APP_PACKAGE_UNDERSCORE/g" "$file"
+                                -e "s/\"Termux\"/\"$TERMUX_APP_PACKAGE\"/g" \
+                                -e "s/com\.termux/$TERMUX_APP_PACKAGE/g" \
+                                -e "s/com_termux/$TERMUX_APP_PACKAGE_UNDERSCORE/g" "$file"
     done
 
     (
-	while IFS= read -r -d '' termux_folder; do
-		migrate_termux_folder "$termux_folder" "$TERMUX_APP_PACKAGE"
-	done < <(find "$(pwd)" -type d -name termux -print0)
-	)
+    while IFS= read -r -d '' termux_folder; do
+        migrate_termux_folder "$termux_folder" "$TERMUX_APP_PACKAGE"
+    done < <(find "$(pwd)" -type d -name termux -print0)
+    )
     popd
 }
 
