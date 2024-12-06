@@ -113,11 +113,11 @@ patch_app() {
                                 -e "s/com_termux/$TERMUX_APP_PACKAGE_UNDERSCORE/g" "$file"
     done
 
-    (
-    while IFS= read -r -d '' termux_folder; do
-        migrate_termux_folder "$termux_folder" "$TERMUX_APP_PACKAGE"
-    done < <(find "$(pwd)" -type d -name termux -print0)
-    )
+    # Vollständig macOS-kompatible Variante für Verzeichnismigration
+    find "$(pwd)" -type d -name termux | while read -r dir; do
+        migrate_termux_folder "$dir" "$TERMUX_APP_PACKAGE"
+    done
+
     popd
 }
 
