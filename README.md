@@ -13,39 +13,50 @@ This script builds a vanilla [termux-play-store/termux-apps/termux-app](https://
 
 ### Example
 
+#### Android SDK (Ubuntu 20.04 and 22.04)
+
 ```bash
-sudo apt install -y docker.io android-sdk sdkmanager openjdk-17-jdk wget unzip patch
-sudo usermod -aG docker $(whoami)
+sudo apt install -y android-sdk sdkmanager
+```
+
+#### Android SDK (Ubuntu 24.04 and 24.10)
+
+```bash
+sudo apt install -y google-android-cmdline-tools-13.0-installer
+```
+
+#### Android SDK Common Setup
+
+```bash
 echo "export ANDROID_SDK_ROOT=/usr/lib/android-sdk" >> ~/.bashrc && . ~/.bashrc
 sudo chown -R $(whoami) $ANDROID_SDK_ROOT
 yes | sdkmanager --licenses
 ```
 
-- Restart your computer or otherwise apply the group change
+#### Docker 
 
 > [!NOTE]
-> For me, logging out and logging in was insufficient on Ubuntu 22.04
+> `docker.io` by Debian/Ubuntu or `docker-ce` by https://docker.com are both acceptable here. This example shows installing `docker.io` - to use Docker CE instead, visit the [docker.com docs for Docker CE](https://docs.docker.com/engine/install/)
+
+```bash
+sudo apt install -y docker.io openjdk-17-jdk wget unzip patch
+sudo usermod -aG docker $(whoami)
+```
+
+> [!NOTE]
+> Restart your computer or otherwise apply the group change. For me, logging out and logging in was insufficient
 
 ```bash
 sudo reboot
 ```
 
+
+#### Using termux-generator
+
 > [!IMPORTANT]
-> Total time for Termux to compile entirely from source with:
-> - an AMD Ryzen 9 5950X
-> - running a server Linux distro 
-> - bare metal (no virtualization) 
-> - connected to 32 GB of RAM 
-> - and an NVMe SSD 
-> - with 80 GB of Swap 
-> - without the `--add` argument
-> - and no other intensive containers or services running: 
+> Best-case typical time to compile with no arguments: **1 hour**
 > 
-> **1 hour**
-> 
-> Time to compile the below example with `--name` and `--add` on the same system:
-> 
-> **3 hours**
+> Best-case typical time to compile the below example with `--name` and `--add`: **3 hours**
 
 ```bash
 wget https://github.com/robertkirkman/termux-generator/archive/refs/heads/main.zip
