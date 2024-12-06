@@ -1,0 +1,23 @@
+diff --git a/packages/openjdk-21/build.sh b/packages/openjdk-21/build.sh
+index 7937304e5..c70a39b9d 100644
+--- a/packages/openjdk-21/build.sh
++++ b/packages/openjdk-21/build.sh
+@@ -98,12 +98,12 @@ termux_step_configure() {
+ 		OBJDUMP="$OBJDUMP" \
+ 		STRIP="$STRIP" \
+ 		CXXFILT="llvm-cxxfilt" \
+-		BUILD_CC="/usr/bin/clang-17" \
+-		BUILD_CXX="/usr/bin/clang++-17" \
+-		BUILD_NM="/usr/bin/llvm-nm-17" \
+-		BUILD_AR="/usr/bin/llvm-ar-17" \
+-		BUILD_OBJCOPY="/usr/bin/llvm-objcopy-17" \
+-		BUILD_STRIP="/usr/bin/llvm-strip-17" \
++		BUILD_CC="/usr/bin/clang-18" \
++		BUILD_CXX="/usr/bin/clang++-18" \
++		BUILD_NM="/usr/bin/llvm-nm-18" \
++		BUILD_AR="/usr/bin/llvm-ar-18" \
++		BUILD_OBJCOPY="/usr/bin/llvm-objcopy-18" \
++		BUILD_STRIP="/usr/bin/llvm-strip-18" \
+ 		$TERMUX_PKG_MAKE_PROCESSES
+ }
+ 
