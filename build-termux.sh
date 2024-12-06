@@ -82,6 +82,25 @@ copy_bootstraps() {
     popd
 }
 
+build_plugins() {
+    pushd example-plugins || exit 8
+
+    for dir in $(find . ! -path . -type d); do
+        pushd $dir
+        gradle build
+        popd
+    done
+
+    popd
+}
+
+copy_plugins() {
+    pushd termux-apps-main || exit 8
+    mkdir -p termux-app/src/main/assets/
+    cp -rf ../example-plugins/* termux-app/src/main/assets/ || exit 12
+    popd
+}
+
 # Funktion, um Ordner zu migrieren
 migrate_termux_folder() {
     PARENT_DIR="$(dirname "$(dirname "$1")")"
@@ -189,27 +208,32 @@ do
     shift 1
 done
 
-# Validierung und Ausführung
-if [ ! -z "${TERMUX_APP_PACKAGE}" ]; then
-    check_name
-fi
 
 if [ -z "${DO_NOT_CLEAN}" ]; then
+    # Validierung und Ausführung
+    if [ ! -z "${TERMUX_APP_PACKAGE}" ]; then
+        check_name
+    fi
+
     ./clean.sh
-fi
 
-download
+    download
 
-if [ ! -z "${TERMUX_APP_PACKAGE}" ]; then
-    patch_bootstraps
-fi
+    if [ ! -z "${TERMUX_APP_PACKAGE}" ]; then
+        patch_bootstraps
+    fi
 
-build_bootstraps
+    build_bootstraps
 
-copy_bootstraps
+    build_plugins
 
-if [ ! -z "${TERMUX_APP_PACKAGE}" ]; then
-    patch_app
+    copy_bootstraps
+
+    copy_plugins
+
+    if [ ! -z "${TERMUX_APP_PACKAGE}" ]; then
+        patch_app
+    fi
 fi
 
 build_app

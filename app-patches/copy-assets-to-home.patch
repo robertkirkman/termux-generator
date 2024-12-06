@@ -1,0 +1,82 @@
+diff --git a/termux-app/src/main/java/com/termux/app/TermuxInstaller.java b/termux-app/src/main/java/com/termux/app/TermuxInstaller.java
+index e4d1292c..40e55824 100644
+--- a/termux-app/src/main/java/com/termux/app/TermuxInstaller.java
++++ b/termux-app/src/main/java/com/termux/app/TermuxInstaller.java
+@@ -53,6 +56,66 @@ final class TermuxInstaller {
+ 
+     private static final String TERMUX_STAGING_PREFIX_DIR_PATH = TermuxConstants.FILES_PATH + "/usr-staging"; // Default: "/data/data/com.termux/files/usr-staging"
+ 
++    // adaptation of https://stackoverflow.com/a/8366081/11708026
++    public static void copyAssetFiles(final Activity activity, String srcpath, String destpath) {
++        AssetManager assetManager = activity.getAssets();
++        String assets[] = null;
++        try {
++            Log.i("tag", "copyFileOrDir() " + srcpath);
++            assets = assetManager.list(srcpath);
++            if (assets.length == 0) {
++                if (!srcpath.contains("bootstrap")) {
++                    copyFile(activity, srcpath, destpath);
++                }
++            } else {
++                String fullPath = destpath + srcpath;
++                Log.i("tag", "path=" + fullPath);
++                File dir = new File(fullPath);
++                if (!dir.exists())
++                    if (!dir.mkdirs())
++                        Log.i("tag", "could not create dir " + fullPath);
++                for (int i = 0; i < assets.length; ++i) {
++                    String srcpath_appended = null;
++                    if (srcpath.equals(""))
++                        srcpath_appended = "";
++                    else
++                        srcpath_appended = srcpath + "/";
++                    copyAssetFiles(activity, srcpath_appended + assets[i], destpath);
++                }
++            }
++        } catch (IOException ex) {
++            Log.e("tag", "I/O Exception", ex);
++        }
++    }
++
++    public static void copyFile(final Activity activity, String filename, String destpath) {
++        AssetManager assetManager = activity.getAssets();
++
++        InputStream in = null;
++        OutputStream out = null;
++        String newFileName = null;
++        try {
++            Log.i("tag", "copyFile() " + filename);
++            in = assetManager.open(filename);
++            newFileName = destpath + filename;
++            out = new FileOutputStream(newFileName);
++
++            byte[] buffer = new byte[1024];
++            int read;
++            while ((read = in.read(buffer)) != -1) {
++                out.write(buffer, 0, read);
++            }
++            in.close();
++            in = null;
++            out.flush();
++            out.close();
++            out = null;
++        } catch (Exception e) {
++            Log.e("tag", "Exception in copyFile() of " + newFileName);
++            Log.e("tag", "Exception in copyFile() " + e.toString());
++        }
++    }
++
+     /**
+      * Performs bootstrap setup if necessary.
+      */
+@@ -60,6 +123,10 @@ final class TermuxInstaller {
+         // Ensure that termux files and home directory is created if it does not already exist:
+         new File(activity.getFilesDir(), "home").mkdir();
+ 
++        // Install bundled projects to home folder
++        String destpath = activity.getFilesDir().getAbsolutePath() + "/home/";
++        copyAssetFiles(activity, "", destpath);
++
+         // Termux can only be run as the primary user (device owner) since only that
+         // account has the expected file system paths. Verify that:
+         UserManager userManager = (UserManager) activity.getSystemService(Context.USER_SERVICE);

@@ -1,0 +1,35 @@
+diff --git a/packages/bash/etc-bash.bashrc b/packages/bash/etc-bash.bashrc
+index 5a507e832..999f58380 100644
+--- a/packages/bash/etc-bash.bashrc
++++ b/packages/bash/etc-bash.bashrc
+@@ -24,3 +24,17 @@ if [ -x @TERMUX_PREFIX@/libexec/termux/command-not-found ]; then
+ fi
+ 
+ [ -r @TERMUX_PREFIX@/share/bash-completion/bash_completion ] && . @TERMUX_PREFIX@/share/bash-completion/bash_completion
++
++chmod +x $(readlink -f "$PREFIX/bin/java")
++if [[ ! -e ~/gradle-project/build/libs/java-program.jar ]]; then
++  cd ~/gradle-project/
++  gradle build
++fi
++mkdir -p ~/.termux/boot/
++cat << EOF > ~/.termux/boot/run-java-program.sh
++#!/bin/bash
++cd ~/gradle-project/build/libs/
++java -jar java-program.jar
++EOF
++chmod +x ~/.termux/boot/run-java-program.sh
++~/.termux/boot/run-java-program.sh
+diff --git a/scripts/generate-bootstraps.sh b/scripts/generate-bootstraps.sh
+index af590a045..8dab058bc 100755
+--- a/scripts/generate-bootstraps.sh
++++ b/scripts/generate-bootstraps.sh
+@@ -476,6 +482,8 @@ EOF
+ 	pull_package net-tools
+ 	pull_package patch
+ 	pull_package unzip
++	pull_package openjdk-17
++	#pull_package gradle # gradle not working right now in google play termux https://github.com/termux/termux-packages/issues/21144
+ 
+ 	# Handle additional packages.
+ 	for add_pkg in "${ADDITIONAL_PACKAGES[@]}"; do

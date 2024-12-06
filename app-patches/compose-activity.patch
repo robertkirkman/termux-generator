@@ -1,0 +1,502 @@
+diff --git a/build.gradle.kts b/build.gradle.kts
+index fe4fef48..ce0ff265 100644
+--- a/build.gradle.kts
++++ b/build.gradle.kts
+@@ -8,7 +8,7 @@ buildscript {
+         val androidGradlePluginVersion: String by project
+         val kotlinVersion: String by project
+         classpath("com.android.tools.build:gradle:$androidGradlePluginVersion")
+-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
++        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.0")
+     }
+ }
+ 
+diff --git a/terminal-emulator/build.gradle.kts b/terminal-emulator/build.gradle.kts
+index 97b7c414..945b2fa2 100644
+--- a/terminal-emulator/build.gradle.kts
++++ b/terminal-emulator/build.gradle.kts
+@@ -1,5 +1,6 @@
+ plugins {
+     id("com.android.library")
++    id("org.jetbrains.kotlin.android")
+ }
+ 
+ android {
+@@ -42,9 +43,13 @@ android {
+         sourceCompatibility = JavaVersion.VERSION_11
+         targetCompatibility = JavaVersion.VERSION_11
+     }
++    kotlinOptions {
++        jvmTarget = "11"
++    }
+ }
+ 
+ dependencies {
+     implementation("androidx.annotation:annotation:1.9.1")
++    implementation("androidx.core:core-ktx:1.15.0")
+     testImplementation("junit:junit:4.13.2")
+ }
+diff --git a/terminal-view/build.gradle.kts b/terminal-view/build.gradle.kts
+index f360ae88..55d4287b 100644
+--- a/terminal-view/build.gradle.kts
++++ b/terminal-view/build.gradle.kts
+@@ -1,5 +1,6 @@
+ plugins {
+     id("com.android.library")
++    id("org.jetbrains.kotlin.android")
+ }
+ 
+ android {
+@@ -30,8 +31,12 @@ android {
+         sourceCompatibility = JavaVersion.VERSION_11
+         targetCompatibility = JavaVersion.VERSION_11
+     }
++    kotlinOptions {
++        jvmTarget = "11"
++    }
+ }
+ 
+ dependencies {
++    implementation("androidx.core:core-ktx:1.15.0")
+     testImplementation("junit:junit:4.13.2")
+ }
+diff --git a/termux-api/build.gradle.kts b/termux-api/build.gradle.kts
+index 7c76c54f..7767544c 100644
+--- a/termux-api/build.gradle.kts
++++ b/termux-api/build.gradle.kts
+@@ -1,5 +1,6 @@
+ plugins {
+     id("com.android.application")
++    id("org.jetbrains.kotlin.android")
+ }
+ 
+ android {
+@@ -42,12 +43,16 @@ android {
+         sourceCompatibility = JavaVersion.VERSION_11
+         targetCompatibility = JavaVersion.VERSION_11
+     }
++    kotlinOptions {
++        jvmTarget = "11"
++    }
+ }
+ 
+ dependencies {
+     implementation("com.google.android.material:material:1.12.0")
+     implementation("androidx.biometric:biometric:1.2.0-alpha05")
+     implementation("androidx.media:media:1.7.0")
++    implementation("androidx.core:core-ktx:1.15.0")
+ }
+ 
+ task("versionName") {
+diff --git a/termux-app/build.gradle.kts b/termux-app/build.gradle.kts
+index 270d54f9..126210a8 100644
+--- a/termux-app/build.gradle.kts
++++ b/termux-app/build.gradle.kts
+@@ -8,6 +8,8 @@ import java.security.MessageDigest
+ 
+ plugins {
+     id("com.android.application")
++    id("org.jetbrains.kotlin.android")
++    id("org.jetbrains.kotlin.plugin.compose") version "2.0.0"
+ }
+ 
+ android {
+@@ -70,6 +72,7 @@ android {
+     }
+ 
+     buildFeatures {
++        compose = true
+         buildConfig = true
+     }
+ 
+@@ -99,9 +102,22 @@ android {
+     lint {
+         warningsAsErrors = true
+     }
++
++    composeOptions {
++        kotlinCompilerExtensionVersion = "2.0.0"
++    }
++    kotlinOptions {
++        jvmTarget = "11"
++    }
+ }
+ 
+ dependencies {
++    implementation("androidx.core:core-ktx:1.15.0")
++    implementation("androidx.activity:activity-compose:1.9.3")
++    implementation("androidx.compose.ui:ui:1.7.5")
++    implementation("androidx.compose.material3:material3:1.3.1")
++    implementation("androidx.compose.ui:ui-tooling-preview:1.7.5")
++    debugImplementation("androidx.compose.ui:ui-tooling:1.7.5")
+     testImplementation("junit:junit:4.13.2")
+     testImplementation("org.robolectric:robolectric:4.13")
+ }
+diff --git a/termux-app/src/main/AndroidManifest.xml b/termux-app/src/main/AndroidManifest.xml
+index 6269542f..f95ffcd5 100644
+--- a/termux-app/src/main/AndroidManifest.xml
++++ b/termux-app/src/main/AndroidManifest.xml
+@@ -78,6 +78,12 @@
+                 android:name="android.app.shortcuts"
+                 android:resource="@xml/shortcuts" />
+         </activity>
++
++        <!-- Registering ComposeActivity -->
++        <activity
++            android:name=".app.ComposeActivity"
++            android:exported="false" />
++
+         <activity-alias
+             android:name=".app.TermuxActivityInternal"
+             android:targetActivity=".app.TermuxActivity"
+diff --git a/termux-app/src/main/java/com/termux/app/ComposeActivityTheme.kt b/termux-app/src/main/java/com/termux/app/ComposeActivityTheme.kt
+new file mode 100644
+index 00000000..99e372d3
+--- /dev/null
++++ b/termux-app/src/main/java/com/termux/app/ComposeActivityTheme.kt
+@@ -0,0 +1,52 @@
++package com.termux.app
++
++import androidx.compose.foundation.isSystemInDarkTheme
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.Typography
++import androidx.compose.material3.darkColorScheme
++import androidx.compose.material3.lightColorScheme
++import androidx.compose.runtime.Composable
++
++// Define light and dark color schemes
++private val LightColorScheme = lightColorScheme(
++    primary = androidx.compose.ui.graphics.Color(0xFF2FEECC),
++    onPrimary = androidx.compose.ui.graphics.Color.White,
++    secondary = androidx.compose.ui.graphics.Color(0xFF21AF98),
++    onSecondary = androidx.compose.ui.graphics.Color.Black,
++    background = androidx.compose.ui.graphics.Color(0xFFFFFFFF),
++    onBackground = androidx.compose.ui.graphics.Color.Black,
++    surface = androidx.compose.ui.graphics.Color(0xFFFFFFFF),
++    onSurface = androidx.compose.ui.graphics.Color.Black,
++)
++
++private val DarkColorScheme = darkColorScheme(
++    primary = androidx.compose.ui.graphics.Color(0xFF2FEECC),
++    onPrimary = androidx.compose.ui.graphics.Color.Black,
++    secondary = androidx.compose.ui.graphics.Color(0xFF21AF98),
++    onSecondary = androidx.compose.ui.graphics.Color.Black,
++    background = androidx.compose.ui.graphics.Color(0xFF121212),
++    onBackground = androidx.compose.ui.graphics.Color.White,
++    surface = androidx.compose.ui.graphics.Color(0xFF121212),
++    onSurface = androidx.compose.ui.graphics.Color.White,
++)
++
++val Typography = Typography()
++
++// Theme Composable
++@Composable
++fun ComposeActivityTheme(
++    darkTheme: Boolean = isSystemInDarkTheme(),
++    content: @Composable () -> Unit
++) {
++    val colors = if (darkTheme) {
++        DarkColorScheme
++    } else {
++        LightColorScheme
++    }
++    
++    MaterialTheme(
++        colorScheme = colors,
++        typography = Typography,
++        content = content
++    )
++}
+diff --git a/termux-app/src/main/java/com/termux/app/TermuxActivity.java b/termux-app/src/main/java/com/termux/app/TermuxActivity.java
+index 31e5abc3..026731c8 100644
+--- a/termux-app/src/main/java/com/termux/app/TermuxActivity.java
++++ b/termux-app/src/main/java/com/termux/app/TermuxActivity.java
+@@ -87,6 +87,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
+ 
+     private static final int REQUEST_CODE_TERMUX_STYLING = 1;
+ 
++    private static final int REQUEST_CODE_CUSTOM_MULTIPURPOSE_PRE_TERMUX_ACTIVITY_INTENT  = 2287;
++
+     /**
+      * The connection to the {@link TermuxService}. Requested in {@link #onCreate(Bundle)} with a call to
+      * {@link #bindService(Intent, ServiceConnection, int)}, and obtained and stored in
+@@ -161,29 +163,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
+ 
+     public TermuxPreferences mPreferences;
+ 
+-    @Override
+-    public void onCreate(Bundle savedInstanceState) {
+-        super.onCreate(savedInstanceState);
+-
+-        if (savedInstanceState != null) {
+-            // mIsActivityRecreated = savedInstanceState.getBoolean(ARG_ACTIVITY_RECREATED, false);
+-        }
+-
+-        mProperties.reloadProperties(this);
+-        mPreferences = new TermuxPreferences(this);
+-
+-        setContentView(R.layout.activity_termux);
+-
+-        mTermuxTerminalViewClient = new TermuxTerminalViewClient(this, mTermuxTerminalSessionActivityClient);
+-
+-        mTerminalView = findViewById(R.id.terminal_view);
+-        mTerminalView.setTerminalViewClient(mTermuxTerminalViewClient);
+-        mTerminalView.setTextSize(mPreferences.getFontSize());
+-
+-        mTermuxTerminalSessionActivityClient.onCreate();
+-
+-        setTerminalToolbarView(savedInstanceState);
+-
++    private void createTermuxActivity() {
+         View newSessionButton = findViewById(R.id.new_session_button);
+         newSessionButton.setOnClickListener(v -> mTermuxTerminalSessionActivityClient.addNewSession(false, null, null, null));
+         newSessionButton.setOnLongClickListener(v -> {
+@@ -245,6 +225,36 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
+         });
+     }
+ 
++    @Override
++    public void onCreate(Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++
++        if (savedInstanceState != null) {
++            // mIsActivityRecreated = savedInstanceState.getBoolean(ARG_ACTIVITY_RECREATED, false);
++        }
++
++        mProperties.reloadProperties(this);
++        mPreferences = new TermuxPreferences(this);
++
++        setContentView(R.layout.activity_termux);
++
++        mTermuxTerminalViewClient = new TermuxTerminalViewClient(this, mTermuxTerminalSessionActivityClient);
++
++        mTerminalView = findViewById(R.id.terminal_view);
++        mTerminalView.setTerminalViewClient(mTermuxTerminalViewClient);
++        mTerminalView.setTextSize(mPreferences.getFontSize());
++
++        mTermuxTerminalSessionActivityClient.onCreate();
++
++        setTerminalToolbarView(savedInstanceState);
++
++        // this launches the ComposeActivity before the TermuxActivity is completely launched, and blocks
++        // launching the TermuxActivity until the ComposeActivity returns control to onActivityResult()
++        Intent intent = new Intent(this, ComposeActivity.class);
++
++        startActivityForResult(intent, REQUEST_CODE_CUSTOM_MULTIPURPOSE_PRE_TERMUX_ACTIVITY_INTENT);
++    }
++
+     @Override
+     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+         super.onActivityResult(requestCode, resultCode, data);
+@@ -296,6 +306,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
+                 showTransientMessage("Error updating files - check file permissions in $HOME", true);
+             }
+         }
++        if (requestCode == REQUEST_CODE_CUSTOM_MULTIPURPOSE_PRE_TERMUX_ACTIVITY_INTENT && data != null) {
++//            String ndkProjectPath = data.getData().getPath().replace("tree/primary:","storage/emulated/0/");
++//            mPreferences.setNdkProjectPath(ndkProjectPath);
++            createTermuxActivity();
++        }
+     }
+ 
+     @Override
+@@ -425,6 +440,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
+         var sessionName = executeIntentInfo == null ? null : executeIntentInfo.sessionName();
+         var executable = executeIntentInfo == null ? null : executeIntentInfo.executable();
+         var executableIntent = executeIntentInfo == null ? null : executeIntentInfo.intent;
++//        var executableIntent = executeIntentInfo == null ? new Intent(this, TermuxService.class).putExtra(TermuxService.TERMUX_NDK_PROJECT_PATH, mPreferences.getNdkProjectPath()) : executeIntentInfo.intent;
+         boolean isFailSafe = intent.getBooleanExtra(EXTRA_FAILSAFE_SESSION, false);
+ 
+         if (mTermuxService.isTermuxSessionsEmpty()) {
+diff --git a/termux-app/src/main/java/com/termux/app/TermuxAppShell.java b/termux-app/src/main/java/com/termux/app/TermuxAppShell.java
+index 46e83682..30b712c1 100644
+--- a/termux-app/src/main/java/com/termux/app/TermuxAppShell.java
++++ b/termux-app/src/main/java/com/termux/app/TermuxAppShell.java
+@@ -69,6 +69,7 @@ public final class TermuxAppShell {
+                                                    @Nullable String workingDirectoryString) {
+         var command = TermuxShellUtils.setupShellCommandArguments(executable, arguments, false);
+         var environmentArray = TermuxShellUtils.setupEnvironment(false);
++//        var environmentArray = TermuxShellUtils.setupEnvironment(false, null);
+         final Process process;
+         try {
+             var runtimeExecArgs = new String[command.arguments.length];
+diff --git a/termux-app/src/main/java/com/termux/app/TermuxPreferences.java b/termux-app/src/main/java/com/termux/app/TermuxPreferences.java
+index d1ecdee4..fb396943 100644
+--- a/termux-app/src/main/java/com/termux/app/TermuxPreferences.java
++++ b/termux-app/src/main/java/com/termux/app/TermuxPreferences.java
+@@ -9,6 +9,7 @@ public class TermuxPreferences {
+ 
+     private static final String PREF_KEEP_SCREEN_ON = "screen_on";
+     private static final String PREF_CURRENT_SESSION = "current_session";
++//    private static final String PREF_NDK_PROJECT_PATH = "ndk_project_path";
+     private static final String PREF_FONT_SIZE = "font_size";
+     private static final String PREF_SHOW_TOOLBAR = "show_toolbar";
+     private static final String PREF_FULLSCREEN = "fullscreen";
+@@ -43,6 +44,14 @@ public class TermuxPreferences {
+         return prefs.getString(PREF_CURRENT_SESSION, null);
+     }
+ 
++//    public void setNdkProjectPath(String ndkProjectPath) {
++//        prefs.edit().putString(PREF_NDK_PROJECT_PATH, ndkProjectPath).apply();
++//    }
++
++//    public String getNdkProjectPath() {
++//        return prefs.getString(PREF_NDK_PROJECT_PATH, null);
++//    }
++
+     public void setShowTerminalToolbar(boolean newValue) {
+         prefs.edit().putBoolean(PREF_SHOW_TOOLBAR, newValue).apply();
+     }
+diff --git a/termux-app/src/main/java/com/termux/app/TermuxService.java b/termux-app/src/main/java/com/termux/app/TermuxService.java
+index 9ec92594..ed96d457 100644
+--- a/termux-app/src/main/java/com/termux/app/TermuxService.java
++++ b/termux-app/src/main/java/com/termux/app/TermuxService.java
+@@ -52,6 +52,7 @@ public final class TermuxService extends Service {
+ 
+     public static final String TERMUX_EXECUTE_EXTRA_ARGUMENTS = "com.termux.execute.arguments";
+     public static final String TERMUX_EXECUTE_WORKDIR = "com.termux.execute.workdir";
++//    public static final String TERMUX_NDK_PROJECT_PATH = "com.termux.ndk.project.path";
+     public static final String TERMUX_EXECUTE_EXTRA_BACKGROUND = "com.termux.execute.background";
+ 
+     public static final String NOTIFICATION_CHANNEL_LOW_ID = "com.termux.service.notification_channel_low";
+@@ -261,6 +262,7 @@ public final class TermuxService extends Service {
+         }
+ 
+         var workingDirectory = intent.getStringExtra(TERMUX_EXECUTE_WORKDIR);
++//        var ndkProjectPath = intent.getStringExtra(TERMUX_NDK_PROJECT_PATH);
+ 
+         if (inBackground) {
+             executeBackgroundTask(executable, arguments, workingDirectory);
+@@ -269,6 +271,7 @@ public final class TermuxService extends Service {
+             boolean isFailsafe = false;
+             String sessionName = null;
+             createTermuxSession(executable, arguments, stdin, workingDirectory, isFailsafe, sessionName);
++//          createTermuxSession(executable, arguments, stdin, workingDirectory, isFailsafe, ndkProjectPath, sessionName);
+         }
+     }
+ 
+@@ -294,6 +297,7 @@ public final class TermuxService extends Service {
+                                                         String stdin,
+                                                         @Nullable String workingDirectory,
+                                                         boolean isFailSafe,
++//                                                        @Nullable String ndkProjectPath,
+                                                         String sessionName) {
+         var sessionClient = new TerminalSessionClient() {
+             @Override
+@@ -362,6 +366,7 @@ public final class TermuxService extends Service {
+             workingDirectory,
+             arguments,
+             isFailSafe
++//            ndkProjectPath
+         );
+ 
+         newTermuxSession.mSessionName = sessionName;
+diff --git a/termux-app/src/main/java/com/termux/app/TermuxShellUtils.java b/termux-app/src/main/java/com/termux/app/TermuxShellUtils.java
+index 6c9833ba..ba3506f3 100644
+--- a/termux-app/src/main/java/com/termux/app/TermuxShellUtils.java
++++ b/termux-app/src/main/java/com/termux/app/TermuxShellUtils.java
+@@ -100,6 +100,7 @@ public class TermuxShellUtils {
+     }
+ 
+ 
++//    public static String[] setupEnvironment(boolean failsafe, String ndkProjectPath) {
+     public static String[] setupEnvironment(boolean failsafe) {
+         String tmpDir = TermuxConstants.PREFIX_PATH + "/tmp";
+ 
+@@ -108,6 +109,7 @@ public class TermuxShellUtils {
+         environment.put("PREFIX", TermuxConstants.PREFIX_PATH);
+         environment.put("TERM", "xterm-256color");
+         environment.put("TERMUX_VERSION", BuildConfig.VERSION_NAME);
++//        environment.put("NDK_PROJECT_PATH", ndkProjectPath);
+         putToEnvIfInSystemEnv(environment, "ANDROID_ART_ROOT");
+         putToEnvIfInSystemEnv(environment, "ANDROID_ASSETS");
+         putToEnvIfInSystemEnv(environment, "ANDROID_DATA");
+@@ -165,7 +167,9 @@ public class TermuxShellUtils {
+                                                                   @Nullable File executable,
+                                                                   @Nullable String workingDirectory,
+                                                                   @Nullable String[] arguments,
+-                                                                  boolean failSafe) {
++                                                                  boolean failSafe
++//                                                                  @Nullable String ndkProjectPath
++                                                                  ) {
+         boolean isLoginShell = executable == null;
+ 
+         if (!failSafe && executable == null) {
+diff --git a/termux-app/src/main/java/com/termux/app/TermuxTerminalSessionActivityClient.java b/termux-app/src/main/java/com/termux/app/TermuxTerminalSessionActivityClient.java
+index e318a69c..d8e87362 100644
+--- a/termux-app/src/main/java/com/termux/app/TermuxTerminalSessionActivityClient.java
++++ b/termux-app/src/main/java/com/termux/app/TermuxTerminalSessionActivityClient.java
+@@ -401,12 +401,15 @@ public final class TermuxTerminalSessionActivityClient implements TerminalSessio
+             var currentSession = mActivity.getCurrentSession();
+             var workingDirectory = (sessionIntent == null) ? null : sessionIntent.getStringExtra(TermuxService.TERMUX_EXECUTE_WORKDIR);
+             var arguments = (sessionIntent == null) ? null : sessionIntent.getStringArrayExtra(TermuxService.TERMUX_EXECUTE_EXTRA_ARGUMENTS);
++//          var ndkProjectPath = (sessionIntent == null) ? null : sessionIntent.getStringExtra(TermuxService.TERMUX_NDK_PROJECT_PATH);
+             if (arguments == null) {
+                 arguments = new String[0];
+             }
+             if (workingDirectory == null) {
+                 workingDirectory = currentSession == null ? TermuxConstants.HOME_PATH : currentSession.getCwd();
+             }
++
++//          var newTermuxSession = service.createTermuxSession(executable, arguments, null, workingDirectory, isFailSafe, ndkProjectPath, sessionName);
+             var newTermuxSession = service.createTermuxSession(executable, arguments, null, workingDirectory, isFailSafe, sessionName);
+             setCurrentSession(newTermuxSession);
+             mActivity.getDrawer().closeDrawers();
+diff --git a/termux-app/src/main/java/com/termux/app/ComposeActivity.kt b/termux-app/src/main/java/com/termux/app/ComposeActivity.kt
+new file mode 100644
+index 00000000..7b5ea2bb
+--- /dev/null
++++ b/termux-app/src/main/java/com/termux/app/ComposeActivity.kt
+@@ -0,0 +1,52 @@
++package com.termux.app
++
++import android.app.Activity
++import android.content.Intent
++import android.os.Bundle
++import android.widget.Toast
++import androidx.activity.ComponentActivity
++import androidx.activity.compose.setContent
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.padding
++import androidx.compose.material3.Button
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.unit.dp
++import androidx.compose.ui.unit.sp
++
++const val REQUEST_CODE_CUSTOM_MULTIPURPOSE_INTENT = 2287
++
++class ComposeActivity : ComponentActivity() {
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        setContent {
++            ComposeActivityTheme {
++                MainScreen {
++                    val resultIntent = Intent().apply {}
++                    setResult(Activity.RESULT_OK, resultIntent)
++                    finish() // Close the Compose activity
++                }
++            }
++        }
++    }
++}
++
++@Composable
++fun MainScreen(onButtonClick: () -> Unit) {
++    Box(
++        modifier = Modifier
++            .fillMaxSize()
++            .padding(16.dp),
++        contentAlignment = Alignment.Center
++    ) {
++        Button(onClick = onButtonClick) {
++            Text(
++                text = "Launch TermuxActivity",
++                fontSize = 50.sp,
++                )
++        }
++    }
++}
