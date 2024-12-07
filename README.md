@@ -7,11 +7,18 @@ This script builds a vanilla [termux-play-store/termux-apps/termux-app](https://
 - Docker
 - Android SDK
 - OpenJDK 17
-- wget
+- Gradle
+- git
 - unzip
 - patch
 
 ### Example
+
+#### Common Dependencies
+```bash
+sudo apt update
+sudo apt install -y openjdk-17-jdk gradle git unzip patch
+```
 
 #### Android SDK (Ubuntu 20.04 and 22.04)
 
@@ -39,7 +46,7 @@ yes | sdkmanager --licenses
 > `docker.io` by Debian/Ubuntu or `docker-ce` by https://docker.com are both acceptable here. This example shows installing `docker.io` - to use Docker CE instead, visit the [docker.com docs for Docker CE](https://docs.docker.com/engine/install/)
 
 ```bash
-sudo apt install -y docker.io openjdk-17-jdk wget unzip patch
+sudo apt install -y docker.io
 sudo usermod -aG docker $(whoami)
 ```
 
@@ -50,7 +57,6 @@ sudo usermod -aG docker $(whoami)
 sudo reboot
 ```
 
-
 #### Using termux-generator
 
 > [!IMPORTANT]
@@ -59,9 +65,8 @@ sudo reboot
 > Best-case typical time to compile the below example with `--name` and `--add`: **3 hours**
 
 ```bash
-wget https://github.com/robertkirkman/termux-generator/archive/refs/heads/main.zip
-unzip main.zip
-cd termux-generator-main
+git clone https://github.com/robertkirkman/termux-generator.git
+cd termux-generator
 ./build-termux.sh --name a.copy.of.termux.with.the.location.changed \
                   --add build-essential,cmake,python,proot-distro
 ```
