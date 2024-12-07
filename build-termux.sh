@@ -75,9 +75,9 @@ copy_bootstraps() {
 build_plugins() {
     pushd example-plugins || exit 8
 
-    for dir in $(find . ! -path . -type d); do
+    for dir in */; do
         pushd $dir
-        gradle build
+        ./gradlew build
         popd
     done
 
