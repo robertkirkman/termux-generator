@@ -1,15 +1,13 @@
 # termux-generator
 
-This script builds a vanilla [termux-play-store/termux-apps/termux-app](https://github.com/termux-play-store/termux-apps/tree/main/termux-app) from source, but allows changing the package name from `com.termux` to anything else with a single command.
+This script builds a vanilla, or optionally modified with custom plugins, [termux-play-store/termux-apps/termux-app](https://github.com/termux-play-store/termux-apps/tree/main/termux-app) from source, but allows changing the package name from `com.termux` to anything else with a single command.
 
 ### Dependencies
 
 - Docker
 - Android SDK
 - OpenJDK 17
-- Gradle
 - git
-- unzip
 - patch
 
 ### Example
@@ -17,7 +15,7 @@ This script builds a vanilla [termux-play-store/termux-apps/termux-app](https://
 #### Common Dependencies
 ```bash
 sudo apt update
-sudo apt install -y openjdk-17-jdk gradle git unzip patch
+sudo apt install -y openjdk-17-jdk git patch
 ```
 
 #### Android SDK (Ubuntu 20.04 and 22.04)

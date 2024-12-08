@@ -10,7 +10,7 @@ index 5a507e832..999f58380 100644
 +chmod +x $(readlink -f "$PREFIX/bin/java")
 +if [[ ! -e ~/gradle-project/build/libs/java-program.jar ]]; then
 +  cd ~/gradle-project/
-+  gradle build
++  ./gradlew build
 +fi
 +mkdir -p ~/.termux/boot/
 +cat << EOF > ~/.termux/boot/run-java-program.sh

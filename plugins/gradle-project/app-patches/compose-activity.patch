@@ -495,7 +495,7 @@ index 00000000..7b5ea2bb
 +        Button(onClick = onButtonClick) {
 +            Text(
 +                text = "Launch TermuxActivity",
-+                fontSize = 50.sp,
++                fontSize = 30.sp,
 +                )
 +        }
 +    }

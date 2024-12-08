@@ -1,5 +1,6 @@
 termux-*
 *.apk
+tmp
 
 # https://github.com/github/gitignore/blob/main/Gradle.gitignore
 .gradle
