@@ -107,14 +107,10 @@ patch_bootstraps() {
 build_bootstraps() {
     pushd termux-packages-main || exit 8
 
-    # currently, termux-play-store/termux-packages/scripts/generate-bootstraps.sh has an issue with cross-pollution of aarch64
-    # binaries into the x86_64 bootstrap unless two separate commands are used, like this
     if [ -z "${ADDITIONAL_PACKAGES}" ]; then
-        scripts/run-docker.sh scripts/generate-bootstraps.sh --build --architectures aarch64 || exit 11
-        scripts/run-docker.sh scripts/generate-bootstraps.sh --build --architectures x86_64 || exit 11
+        scripts/run-docker.sh scripts/generate-bootstraps.sh --build --architectures aarch64,x86_64,arm || exit 11
     else
-        scripts/run-docker.sh scripts/generate-bootstraps.sh --build --architectures aarch64 --add "${ADDITIONAL_PACKAGES}" || exit 11
-        scripts/run-docker.sh scripts/generate-bootstraps.sh --build --architectures x86_64 --add "${ADDITIONAL_PACKAGES}" || exit 11
+        scripts/run-docker.sh scripts/generate-bootstraps.sh --build --architectures aarch64,x86_64,arm --add "${ADDITIONAL_PACKAGES}" || exit 11
     fi
 
     popd

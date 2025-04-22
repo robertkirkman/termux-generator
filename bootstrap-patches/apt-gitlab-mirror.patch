@@ -1,0 +1,13 @@
+--- a/packages/apt/build.sh
++++ b/packages/apt/build.sh
+@@ -4,8 +4,8 @@ TERMUX_PKG_LICENSE="GPL-2.0"
+ TERMUX_PKG_MAINTAINER="@termux"
+ TERMUX_PKG_VERSION="2.9.28"
+ TERMUX_PKG_REVISION=1
+-TERMUX_PKG_SRCURL=https://deb.debian.org/debian/pool/main/a/apt/apt_${TERMUX_PKG_VERSION}.tar.xz
+-TERMUX_PKG_SHA256=69efe05f475656a721510dfb2584a1f1f083c39c10192d6a0db30da3d18af536
++TERMUX_PKG_SRCURL=https://salsa.debian.org/apt-team/apt/-/archive/${TERMUX_PKG_VERSION}/apt-${TERMUX_PKG_VERSION}.tar.gz
++TERMUX_PKG_SHA256=829f5fd25947b038853ee71d4deb07ef2dac2578471b13ccf93c2f6129cb26ba
+ # apt-key requires utilities from coreutils, findutils, gpgv, grep, sed.
+ TERMUX_PKG_DEPENDS="coreutils, dpkg, findutils, gpgv, grep, libc++, libgnutls, liblzma, sed, termux-keyring, termux-licenses, xxhash"
+ TERMUX_PKG_BUILD_DEPENDS="docbook-xsl"
