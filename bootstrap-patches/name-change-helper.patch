@@ -1,8 +1,6 @@
-diff --git a/packages/termux-tools/build.sh b/packages/termux-tools/build.sh
-index 377166bf0..4574dbc6c 100644
 --- a/packages/termux-tools/build.sh
 +++ b/packages/termux-tools/build.sh
-@@ -19,5 +19,13 @@ TERMUX_PKG_DEPENDS="coreutils, curl, dash, diffutils, findutils, gawk, grep, les
+@@ -20,6 +20,14 @@ TERMUX_PKG_DEPENDS="coreutils, curl, dash, diffutils, findutils, gawk, grep, les
  TERMUX_PKG_RECOMMENDS="ed, dos2unix, inetutils, net-tools, patch, unzip"
  
  termux_step_pre_configure() {
@@ -14,5 +12,6 @@ index 377166bf0..4574dbc6c 100644
 +https://www.patreon.com/termux
 +https://opencollective.com/termux
 +=================================" > motds/motd
- 	autoreconf -vfi
- }
+ 	# Can't apply these patch normally since they contains special @TERMUX..@ text which normal patch replaces:
+ 	for d in "$TERMUX_PKG_BUILDER_DIR"/*.diff; do
+ 		patch -p1 < "$d"

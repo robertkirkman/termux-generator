@@ -6,7 +6,7 @@
          compileSdk = compileSdkVersion.toInt()
 -
 -        ndk {
--            abiFilters += listOf("arm64-v8a", "x86_64")
+-            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
 -        }
 -
 -        externalNativeBuild {
@@ -42,7 +42,7 @@
      lint {
          warningsAsErrors = true
      }
-@@ -112,84 +90,6 @@ task("versionName") {
+@@ -112,89 +90,6 @@ task("versionName") {
      }
  }
  
@@ -98,10 +98,11 @@
 -
 -task("downloadPrebuilt") {
 -    doLast {
--        val bootstrapVersion = "2024.10.30-r1"
+-        val bootstrapVersion = "2025.01.18-r1"
 -        val arches = mapOf(
--            "aarch64" to "49f4f6a92037061d6a4c67332bbe46ca217c7761ce1170ab2be3ef500ff4afc3",
--            "x86_64" to "7492fbbc9d1f6fc9e8a853698d78d4a3f2d168e1ea0a6d49bd52c4fdae9de4e2"
+-            "aarch64" to "ce08316c5ab0610551c6b4a2c0d256073c0f47ec5d72a94f3895e3bd911f7aff",
+-            "arm" to "ee54ef84c34da2084d388ee4132de357f8d514467339b69d56d78bbab0d0eb04",
+-            "x86_64" to "dfc6d9d7e5b8dee126ab95a8fc528b53e4044588c3f5eacf428fe1e0aa0bf4e3"
 -        )
 -        arches.forEach { (arch, checksum) ->
 -            val downloadTo = "src/main/cpp/bootstrap-${arch}.zip"
@@ -109,11 +110,15 @@
 -            downloadFile(downloadTo, url, checksum)
 -        }
 -
--        val prootVersion = "5.1.107-65"
--        downloadFile("src/main/jniLibs/arm64-v8a/libproot-loader.so", "https://bootstrap.termux.net/libproot-loader-aarch64-$prootVersion.so", "23cbee2320ed6f55ec4c47d50573a3ee59163f84c6e1bfaf7fb67049f71a2b59")
--        downloadFile("src/main/jniLibs/x86_64/libproot-loader.so", "https://bootstrap.termux.net/libproot-loader-x86_64-$prootVersion.so", "bf69995d5c9d35591197ce61f6046e80116858334109bf9b6ea9d787ca2fe256")
--        downloadFile("src/main/jniLibs/arm64-v8a/libproot-loader32.so", "https://bootstrap.termux.net/libproot-loader32-aarch64-$prootVersion.so", "8e0d7fbdc5937886c272a3ef7c2c1d1b62ab51dcfc542b938675bf05baf4a83a")
--        downloadFile("src/main/jniLibs/x86_64/libproot-loader32.so", "https://bootstrap.termux.net/libproot-loader32-x86_64-$prootVersion.so", "b33f2ef262ec0458504e6327d84c7d7b87cc504c0ea53cf3eccc60a3746241b2")
+-        val prootTag = "proot-2025.01.15-r2"
+-        val prootVersion = "5.1.107-66"
+-        var prootUrl = "https://github.com/termux-play-store/termux-packages/releases/download/${prootTag}/libproot-loader-ARCH-${prootVersion}.so"
+-        downloadFile("src/main/jniLibs/armeabi-v7a/libproot-loader.so", prootUrl.replace("ARCH", "arm"), "eb1d64e9ef875039534ce7a8eeffa61bbc4c0ae5722cb48c9112816b43646a3e")
+-        downloadFile("src/main/jniLibs/arm64-v8a/libproot-loader.so", prootUrl.replace("ARCH", "aarch64"), "8814b72f760cd26afe5350a1468cabb6622b4871064947733fcd9cd06f1c8cb8")
+-        downloadFile("src/main/jniLibs/x86_64/libproot-loader.so", prootUrl.replace("ARCH", "x86_64"), "1a52cc9cc5fdecbf4235659ffeac8c51e4fefd7c75cc205f52d4884a3a0a0ba1")
+-        prootUrl = "https://github.com/termux-play-store/termux-packages/releases/download/${prootTag}/libproot-loader32-ARCH-${prootVersion}.so"
+-        downloadFile("src/main/jniLibs/arm64-v8a/libproot-loader32.so", prootUrl.replace("ARCH", "aarch64"), "ff56a5e3a37104f6778420d912e3edf31395c15d1528d28f0eb7d13a64481b99")
+-        downloadFile("src/main/jniLibs/x86_64/libproot-loader32.so", prootUrl.replace("ARCH", "x86_64"), "5460a597e473f57f0d33405891e35ca24709173ca0a38805d395e3544ab8b1b4")
 -    }
 -}
 -
