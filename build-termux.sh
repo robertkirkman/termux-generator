@@ -198,6 +198,12 @@ do
         -n|--name)
             if [ $# -gt 1 ] && [ -n "$2" ] && [[ $2 != -* ]]; then
                 export TERMUX_APP_PACKAGE="$2"
+                if [[ $TERMUX_APP_PACKAGE == *"com.termux"* ]]; then
+                        echo "[!] Sorry, please choose a unique custom name that does not contain 'com.termux'"
+                        echo "(and is not an exact substring of it either) to avoid side effects."
+                        echo "Examples: 'com.test.termux' is OK, but 'com.termux.test' or 'com.ter' could have side effects."
+                        exit 1
+                fi
                 shift 1
             else
                 echo "[!] Option '--name' requires an argument."
