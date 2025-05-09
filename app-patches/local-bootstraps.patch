@@ -42,7 +42,7 @@
      lint {
          warningsAsErrors = true
      }
-@@ -112,89 +90,6 @@ task("versionName") {
+@@ -112,89 +90,6 @@ tasks.register("versionName") {
      }
  }
  
@@ -96,7 +96,7 @@
 -    }
 -}
 -
--task("downloadPrebuilt") {
+-tasks.register("downloadPrebuilt") {
 -    doLast {
 -        val bootstrapVersion = "2025.01.18-r1"
 -        val arches = mapOf(
