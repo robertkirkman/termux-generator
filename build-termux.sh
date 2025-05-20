@@ -12,7 +12,7 @@ show_usage() {
     echo "Options:"
     echo " -h, --help                  Show this help."
     echo " -a, --add PKG_LIST          Include additional packages in bootstrap archive."
-    echo " -n, --name APP_NAME         Specify TERMUX_APP_PACKAGE name."
+    echo " -n, --name APP_NAME         Specify TERMUX_APP__PACKAGE_NAME name."
     echo " -p, --plugin PLUGIN         Specify a plugin from the plugins folder to apply during building."
     echo " -d, --dirty                 Build without cleaning previous artifacts."
     echo
@@ -41,24 +41,24 @@ apply_patches() {
 
 # Funktion, um den Paketnamen zu überprüfen
 check_name() {
-    if [[ $TERMUX_APP_PACKAGE =~ '_' ]] || \
-       [[ $TERMUX_APP_PACKAGE =~ '-' ]] || \
-       [[ $TERMUX_APP_PACKAGE == package ]] || \
-       [[ $TERMUX_APP_PACKAGE == package.* ]] || \
-       [[ $TERMUX_APP_PACKAGE == *.package ]] || \
-       [[ $TERMUX_APP_PACKAGE == *.package.* ]] || \
-       [[ $TERMUX_APP_PACKAGE == in ]] || \
-       [[ $TERMUX_APP_PACKAGE == in.* ]] || \
-       [[ $TERMUX_APP_PACKAGE == *.in ]] || \
-       [[ $TERMUX_APP_PACKAGE == *.in.* ]] || \
-       [[ $TERMUX_APP_PACKAGE == is ]] || \
-       [[ $TERMUX_APP_PACKAGE == is.* ]] || \
-       [[ $TERMUX_APP_PACKAGE == *.is ]] || \
-       [[ $TERMUX_APP_PACKAGE == *.is.* ]] || \
-       [[ $TERMUX_APP_PACKAGE == as ]] || \
-       [[ $TERMUX_APP_PACKAGE == as.* ]] || \
-       [[ $TERMUX_APP_PACKAGE == *.as ]] || \
-       [[ $TERMUX_APP_PACKAGE == *.as.* ]]
+    if [[ $TERMUX_APP__PACKAGE_NAME =~ '_' ]] || \
+       [[ $TERMUX_APP__PACKAGE_NAME =~ '-' ]] || \
+       [[ $TERMUX_APP__PACKAGE_NAME == package ]] || \
+       [[ $TERMUX_APP__PACKAGE_NAME == package.* ]] || \
+       [[ $TERMUX_APP__PACKAGE_NAME == *.package ]] || \
+       [[ $TERMUX_APP__PACKAGE_NAME == *.package.* ]] || \
+       [[ $TERMUX_APP__PACKAGE_NAME == in ]] || \
+       [[ $TERMUX_APP__PACKAGE_NAME == in.* ]] || \
+       [[ $TERMUX_APP__PACKAGE_NAME == *.in ]] || \
+       [[ $TERMUX_APP__PACKAGE_NAME == *.in.* ]] || \
+       [[ $TERMUX_APP__PACKAGE_NAME == is ]] || \
+       [[ $TERMUX_APP__PACKAGE_NAME == is.* ]] || \
+       [[ $TERMUX_APP__PACKAGE_NAME == *.is ]] || \
+       [[ $TERMUX_APP__PACKAGE_NAME == *.is.* ]] || \
+       [[ $TERMUX_APP__PACKAGE_NAME == as ]] || \
+       [[ $TERMUX_APP__PACKAGE_NAME == as.* ]] || \
+       [[ $TERMUX_APP__PACKAGE_NAME == *.as ]] || \
+       [[ $TERMUX_APP__PACKAGE_NAME == *.as.* ]]
     then
         echo "Package name must not contain underscores, dashes, or invalid patterns!"
         exit 2
@@ -99,7 +99,7 @@ install_plugin() {
 patch_bootstraps() {
     apply_patches bootstrap-patches termux-packages-main
     pushd termux-packages-main
-    portable_sed_i "s/TERMUX_APP_PACKAGE=\"com.termux\"/TERMUX_APP_PACKAGE=\"$TERMUX_APP_PACKAGE\"/g" scripts/properties.sh || exit 10
+    portable_sed_i "s/TERMUX_APP__PACKAGE_NAME=\"com.termux\"/TERMUX_APP__PACKAGE_NAME=\"$TERMUX_APP__PACKAGE_NAME\"/g" scripts/properties.sh || exit 10
     popd
 }
 
@@ -125,8 +125,8 @@ copy_bootstraps() {
 # Funktion, um Ordner zu migrieren
 migrate_termux_folder() {
     PARENT_DIR="$(dirname "$(dirname "$1")")"
-    TERMUX_APP_PACKAGE=$2
-    DESTINATION="${PARENT_DIR}/$(echo "$TERMUX_APP_PACKAGE" | tr . /)/"
+    TERMUX_APP__PACKAGE_NAME=$2
+    DESTINATION="${PARENT_DIR}/$(echo "$TERMUX_APP__PACKAGE_NAME" | tr . /)/"
     echo "Migrating folder: renaming ${PARENT_DIR}/com/termux/ to ${DESTINATION}"
     mkdir -p "${DESTINATION}"
     mv "${PARENT_DIR}/com/termux/"* "${DESTINATION}"
@@ -139,19 +139,19 @@ patch_app() {
 
     pushd termux-apps-main
 
-    TERMUX_APP_PACKAGE_UNDERSCORE=$(echo "$TERMUX_APP_PACKAGE" | tr . _)
+    TERMUX_APP__PACKAGE_NAME_UNDERSCORE=$(echo "$TERMUX_APP__PACKAGE_NAME" | tr . _)
     
     # Nur Textdateien bearbeiten, um Fehler zu vermeiden
     find . -type f -exec file {} + | grep "text" | cut -d: -f1 | while read -r file; do
-        portable_sed_i -e "s/>Termux</>$TERMUX_APP_PACKAGE</g" \
-                       -e "s/\"Termux\"/\"$TERMUX_APP_PACKAGE\"/g" \
-                       -e "s/com\.termux/$TERMUX_APP_PACKAGE/g" \
-                       -e "s/com_termux/$TERMUX_APP_PACKAGE_UNDERSCORE/g" "$file"
+        portable_sed_i -e "s/>Termux</>$TERMUX_APP__PACKAGE_NAME</g" \
+                       -e "s/\"Termux\"/\"$TERMUX_APP__PACKAGE_NAME\"/g" \
+                       -e "s/com\.termux/$TERMUX_APP__PACKAGE_NAME/g" \
+                       -e "s/com_termux/$TERMUX_APP__PACKAGE_NAME_UNDERSCORE/g" "$file"
     done
 
     # Vollständig macOS-kompatible Variante für Verzeichnismigration
     find "$(pwd)" -type d -name termux | while read -r dir; do
-        migrate_termux_folder "$dir" "$TERMUX_APP_PACKAGE"
+        migrate_termux_folder "$dir" "$TERMUX_APP__PACKAGE_NAME"
     done
 
     popd
@@ -166,12 +166,12 @@ build_app() {
 
 # Funktion, um die APK zu kopieren
 copy_app() {
-    cp termux-apps-main/termux-app/build/outputs/apk/debug/*.apk "$TERMUX_APP_PACKAGE".apk
+    cp termux-apps-main/termux-app/build/outputs/apk/debug/*.apk "$TERMUX_APP__PACKAGE_NAME".apk
 }
 
 cd "$(dirname "$0")"
 
-export TERMUX_APP_PACKAGE="com.termux"
+export TERMUX_APP__PACKAGE_NAME="com.termux"
 
 # Argumente verarbeiten
 while (($# > 0))
@@ -197,8 +197,8 @@ do
             ;;
         -n|--name)
             if [ $# -gt 1 ] && [ -n "$2" ] && [[ $2 != -* ]]; then
-                export TERMUX_APP_PACKAGE="$2"
-                if [[ $TERMUX_APP_PACKAGE == *"com.termux"* ]]; then
+                export TERMUX_APP__PACKAGE_NAME="$2"
+                if [[ $TERMUX_APP__PACKAGE_NAME == *"com.termux"* ]]; then
                         echo "[!] Sorry, please choose a unique custom name that does not contain 'com.termux'"
                         echo "(and is not an exact substring of it either) to avoid side effects."
                         echo "Examples: 'com.test.termux' is OK, but 'com.termux.test' or 'com.ter' could have side effects."
