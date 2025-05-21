@@ -1,0 +1,14 @@
+
+--- a/scripts/generate-bootstraps.sh
++++ b/scripts/generate-bootstraps.sh
+@@ -110,7 +110,9 @@ pull_package() {
+ 
+ 	if [ ${TERMUX_PACKAGE_MANAGER} = "apt" ]; then
+ 		if [ "${TERMUX_BUILD_BOOTSTRAPS}" = true ]; then
+-			if [ ! -d packages/$package_name ]; then
++			if [ ! -d packages/$package_name ] && \
++				[ ! -d root-packages/$package_name ] && \
++				[ ! -d x11-packages/$package_name ]; then
+ 				local parent_package_path=$(find . -name $package_name.subpackage.sh)
+ 				local package_to_build=$(basename $(dirname $parent_package_path))
+ 				echo "INFO: Package $package_name was a subpackage, building parent package $package_to_build"
