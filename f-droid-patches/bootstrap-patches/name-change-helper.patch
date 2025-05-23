@@ -1,17 +1,17 @@
 --- a/packages/termux-tools/build.sh
 +++ b/packages/termux-tools/build.sh
-@@ -20,6 +20,14 @@ TERMUX_PKG_DEPENDS="coreutils, curl, dash, diffutils, findutils, gawk, grep, les
+@@ -21,6 +21,14 @@ TERMUX_PKG_DEPENDS="bzip2, coreutils, curl, dash, diffutils, findutils, gawk, gr
  TERMUX_PKG_RECOMMENDS="ed, dos2unix, inetutils, net-tools, patch, unzip"
  
  termux_step_pre_configure() {
 +	find . -type f -print0 | xargs -0 sed -i "s/com.termux/$TERMUX_APP__PACKAGE_NAME/g"
 +	echo "Welcome to $TERMUX_APP__PACKAGE_NAME!
-+This is a fork of termux-play-store!
++This is a fork of \"F-Droid\" Termux!
 +Do not report issues with this build upstream!
 +========= Donate Here ===========
-+https://www.patreon.com/termux
++https://termux.dev/en/donate.html
 +https://opencollective.com/termux
 +=================================" > motds/motd
- 	# Can't apply these patch normally since they contains special @TERMUX..@ text which normal patch replaces:
- 	for d in "$TERMUX_PKG_BUILDER_DIR"/*.diff; do
- 		patch -p1 < "$d"
+ 	autoreconf -vfi
+ }
+ 

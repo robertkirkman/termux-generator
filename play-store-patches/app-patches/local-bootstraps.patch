@@ -152,12 +152,16 @@
  import java.nio.file.Files;
  import java.util.ArrayList;
  import java.util.List;
-@@ -102,9 +105,12 @@ final class TermuxInstaller {
+@@ -102,9 +105,16 @@ final class TermuxInstaller {
  
                  final byte[] buffer = new byte[8096];
                  final List<Pair<String, String>> symlinks = new ArrayList<>(50);
 +                AssetManager assetManager = activity.getApplicationContext().getAssets();
 +                String architecture = System.getProperty("os.arch");
++                if (architecture.contains("arm")) {
++                    // 32-bit ARM
++                    architecture = "arm";
++                }
 +                String bootstrapFilename = "bootstrap-" + architecture + ".zip";
 +                InputStream inputStream = assetManager.open(bootstrapFilename);
  

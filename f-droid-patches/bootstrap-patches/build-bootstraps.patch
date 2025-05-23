@@ -1,0 +1,70 @@
+--- a/scripts/bootstrap/termux-bootstrap-second-stage.sh
++++ b/scripts/bootstrap/termux-bootstrap-second-stage.sh
+@@ -198,6 +198,8 @@ run_package_postinst_maintainer_scripts() {
+ 				maintscript_debug=1
+ 			fi
+ 
++			find "${TERMUX_PREFIX}/bin/" \( -type f -o -type l \) -exec chmod +x {} \;
++
+ 			for script_path in "${TERMUX_PREFIX}/var/lib/dpkg/info/"*.postinst; do
+ 				script_basename="${script_path##*/}"
+ 				package_name="${script_basename::-9}"
+--- a/scripts/build-bootstraps.sh
++++ b/scripts/build-bootstraps.sh
+@@ -29,6 +29,8 @@ BOOTSTRAP_ANDROID10_COMPATIBLE=false
+ TERMUX_DEFAULT_ARCHITECTURES=("aarch64" "arm" "i686" "x86_64")
+ TERMUX_ARCHITECTURES=("${TERMUX_DEFAULT_ARCHITECTURES[@]}")
+ 
++TERMUX_PACKAGE_MANAGER="apt"
++
+ TERMUX_PACKAGES_DIRECTORY="/home/builder/termux-packages"
+ TERMUX_BUILT_DEBS_DIRECTORY="$TERMUX_PACKAGES_DIRECTORY/output"
+ TERMUX_BUILT_PACKAGES_DIRECTORY="/data/data/.built-packages"
+@@ -138,6 +140,11 @@ extract_debs() {
+ 			continue
+ 		fi
+ 
++		if [[ "$current_package_name" == *"cross"* ]]; then
++			echo "[*] Skipping cross package '$current_package_name'..."
++			continue
++		fi
++
+ 		EXTRACTED_PACKAGES+=("$current_package_name")
+ 
+ 		package_tmpdir="${BOOTSTRAP_PKGDIR}/${current_package_name}"
+@@ -243,7 +250,13 @@ create_bootstrap_archive() {
+ 			rm -f "$link"
+ 		done < <(find . -type l -print0)
+ 
+-		zip -r9 "${BOOTSTRAP_TMPDIR}/bootstrap-${1}.zip" ./*
++		# in some cases this can be approximately 4% real-world size reduction of bootstrap
++		# compared to using zip command
++		# I observed a real 7.6 GB bootstrap containing entirely termux packages
++		# reduce to 7.3 GB when rezipped this way.
++		sudo apt-get update
++		sudo apt-get install -y p7zip-full
++		7z a "${BOOTSTRAP_TMPDIR}/bootstrap-${1}.zip" ./* -mfb=258 -mpass=15
+ 	)
+ 
+ 	mv -f "${BOOTSTRAP_TMPDIR}/bootstrap-${1}.zip" "$TERMUX_PACKAGES_DIRECTORY/"
+@@ -429,7 +442,10 @@ main() {
+ 
+ 		# Core utilities.
+ 		PACKAGES+=("bash") # Used by `termux-bootstrap-second-stage.sh`
+-		PACKAGES+=("bzip2")
++       # F-Droid Termux currently has problems with fully bootstrapping subpackages.
++       # adding them by specifying only parent packages, at the cost of a lot of space,
++       # is the most naive workaround. there are other solutions being developed elsewhere.
++		PACKAGES+=("libbz2")
+ 		if ! ${BOOTSTRAP_ANDROID10_COMPATIBLE}; then
+ 			PACKAGES+=("command-not-found")
+ 		else
+@@ -483,7 +499,7 @@ main() {
+ 		extract_debs "$TERMUX_ARCH" || return $?
+ 
+ 		# Add termux bootstrap second stage files
+-		add_termux_bootstrap_second_stage_files "$package_arch"
++		add_termux_bootstrap_second_stage_files "$TERMUX_ARCH"
+ 
+ 		# Create bootstrap archive.
+ 		create_bootstrap_archive "$TERMUX_ARCH" || return $?

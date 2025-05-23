@@ -1,0 +1,113 @@
+--- a/termux-tasker/app/build.gradle
++++ b/termux-tasker/app/build.gradle
+@@ -79,11 +79,11 @@ dependencies {
+     implementation "com.google.android.material:material:1.12.0"
+     implementation "com.google.guava:guava:24.1-jre"
+ 
+-    implementation "com.termux.termux-app:termux-shared:da3a0ac4e2"
++    //implementation "com.termux.termux-app:termux-shared:da3a0ac4e2"
+     // Use if below libraries are published locally by termux-app with `./gradlew publishReleasePublicationToMavenLocal` and used with `mavenLocal()`.
+     // If updates are done, republish there and sync project with gradle files here
+     // https://github.com/termux/termux-app/wiki/Termux-Libraries
+-    //implementation "com.termux:termux-shared:0.118.0"
++    implementation "com.termux:termux-shared:0.118.0"
+ 
+     implementation "com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava"
+ 
+--- a/termux-tasker/build.gradle
++++ b/termux-tasker/build.gradle
+@@ -13,7 +13,7 @@ allprojects {
+     repositories {
+         google()
+         mavenCentral()
+-        //mavenLocal()
++        mavenLocal()
+         maven { url "https://jitpack.io" }
+     }
+ }
+--- a/termux-float/app/build.gradle
++++ b/termux-float/app/build.gradle
+@@ -72,14 +72,14 @@ dependencies {
+ 
+     implementation "androidx.annotation:annotation:1.9.1"
+ 
+-    implementation "com.termux.termux-app:termux-shared:da3a0ac4e2"
+-    implementation "com.termux.termux-app:terminal-view:da3a0ac4e2"
++    //implementation "com.termux.termux-app:termux-shared:da3a0ac4e2"
++    //implementation "com.termux.termux-app:terminal-view:da3a0ac4e2"
+ 
+     // Use if below libraries are published locally by termux-app with `./gradlew publishReleasePublicationToMavenLocal` and used with `mavenLocal()`.
+     // If updates are done, republish there and sync project with gradle files here
+     // https://github.com/termux/termux-app/wiki/Termux-Libraries
+-    //implementation "com.termux:termux-shared:0.118.0"
+-    //implementation "com.termux:terminal-view:0.118.0"
++    implementation "com.termux:termux-shared:0.118.0"
++    implementation "com.termux:terminal-view:0.118.0"
+ 
+     implementation "com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava"
+ }
+--- a/termux-float/build.gradle
++++ b/termux-float/build.gradle
+@@ -13,7 +13,7 @@ allprojects {
+     repositories {
+         mavenCentral()
+         google()
+-        //mavenLocal()
++        mavenLocal()
+         maven { url "https://jitpack.io" }
+     }
+ }
+--- a/termux-api/app/build.gradle
++++ b/termux-api/app/build.gradle
+@@ -73,11 +73,11 @@ dependencies {
+     implementation "androidx.media:media:1.7.0"
+     implementation "androidx.preference:preference:1.2.1"
+ 
+-    implementation "com.termux.termux-app:termux-shared:da3a0ac4e2"
++    //implementation "com.termux.termux-app:termux-shared:da3a0ac4e2"
+     // Use if below libraries are published locally by termux-app with `./gradlew publishReleasePublicationToMavenLocal` and used with `mavenLocal()`.
+     // If updates are done, republish there and sync project with gradle files here
+     // https://github.com/termux/termux-app/wiki/Termux-Libraries
+-    //implementation "com.termux:termux-shared:0.118.0"
++    implementation "com.termux:termux-shared:0.118.0"
+ 
+     implementation "com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava"
+ }
+--- a/termux-api/build.gradle
++++ b/termux-api/build.gradle
+@@ -12,7 +12,7 @@ allprojects {
+     repositories {
+         google()
+         mavenCentral()
+-        //mavenLocal()
++        mavenLocal()
+         maven { url "https://jitpack.io" }
+     }
+ }
+--- a/termux-widget/app/build.gradle
++++ b/termux-widget/app/build.gradle
+@@ -71,11 +71,11 @@ dependencies {
+     implementation "com.google.android.material:material:1.12.0"
+     implementation "com.google.guava:guava:24.1-jre"
+ 
+-    implementation 'com.termux.termux-app:termux-shared:da3a0ac4e2'
++    //implementation 'com.termux.termux-app:termux-shared:da3a0ac4e2'
+     // Use if below libraries are published locally by termux-app with `./gradlew publishReleasePublicationToMavenLocal` and used with `mavenLocal()`.
+     // If updates are done, republish there and sync project with gradle files here
+     // https://github.com/termux/termux-app/wiki/Termux-Libraries
+-    //implementation "com.termux:termux-shared:0.118.0"
++    implementation "com.termux:termux-shared:0.118.0"
+ 
+     implementation "com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava"
+ }
+--- a/termux-widget/build.gradle
++++ b/termux-widget/build.gradle
+@@ -13,7 +13,7 @@ allprojects {
+     repositories {
+         google()
+         mavenCentral()
+-        //mavenLocal()
++        mavenLocal()
+         maven { url "https://jitpack.io" }
+     }
+ }

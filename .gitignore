@@ -1,5 +1,7 @@
 termux-*
 *.apk
+*.deb
+*.xz
 tmp
 
 # https://github.com/github/gitignore/blob/main/Gradle.gitignore

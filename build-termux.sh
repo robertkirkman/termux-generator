@@ -1,5 +1,5 @@
 #!/bin/bash
-# set -x
+set -e -u -o pipefail
 # Wechsel zum Verzeichnis, in dem das Skript liegt
 
 # Anzeige der Hilfe
@@ -13,6 +13,8 @@ show_usage() {
     echo " -h, --help                  Show this help."
     echo " -a, --add PKG_LIST          Include additional packages in bootstrap archive."
     echo " -n, --name APP_NAME         Specify TERMUX_APP__PACKAGE_NAME name."
+    echo " -t, --type APP_TYPE         Specify the Termux project to fork [f-droid, play-store]. Defaults to f-droid."
+    echo " --architectures ARCH_LIST   Specify the bootstrap architectures to include in a comma-separated list."
     echo " -p, --plugin PLUGIN         Specify a plugin from the plugins folder to apply during building."
     echo " -d, --dirty                 Build without cleaning previous artifacts."
     echo
@@ -31,10 +33,10 @@ apply_patches() {
     srcdir=$(realpath "$1")
     targetdir=$(realpath "$2")
     local PATCHES=$(find "$srcdir" -type f | sort)
-    pushd $targetdir || exit 13
+    pushd $targetdir
     for patch in $PATCHES
     do
-        patch -p1 < "$patch" || exit 9
+        patch -p1 < "$patch"
     done
     popd
 }
@@ -68,58 +70,103 @@ check_name() {
 clean_docker() {
     docker container kill termux-generator-package-builder 2> /dev/null || true
     docker container rm -f termux-generator-package-builder 2>/dev/null || true
-    docker image rm ghcr.io/termux-play-store/package-builder 2>/dev/null || true
+    if ! docker image rm ghcr.io/termux/package-builder 2>/dev/null; then
+        echo "[*] Warning: not removing Docker package builder image for \"F-Droid\" Termux, likely because it is either not downloaded yet, or in use by other containers."
+    fi
+    if ! docker image rm ghcr.io/termux-play-store/package-builder 2>/dev/null; then
+        echo "[*] Warning: not removing Docker package builder image for \"Google Play\" Termux, likely because it is either not downloaded yet, or in use by other containers."
+    fi
 }
 
 clean_artifacts() {
-    rm -rf termux* 2>/dev/null
-    rm *.apk 2>/dev/null
+    rm -rf termux* *.apk *.deb *.xz 2>/dev/null
 }
 
 # Funktion, um Repositories herunterzuladen
 download() {
-    git clone https://github.com/termux-play-store/termux-packages.git termux-packages-main || exit 3
-    git clone https://github.com/termux-play-store/termux-apps.git termux-apps-main || exit 4
+    if [[ "$TERMUX_APP_TYPE" == "f-droid" ]]; then
+        git clone --depth 1 https://github.com/termux/termux-packages.git               termux-packages-main
+        git clone --depth 1 https://github.com/termux/termux-tasker.git                 termux-apps-main/termux-tasker
+        git clone --depth 1 https://github.com/termux/termux-float.git                  termux-apps-main/termux-float
+        git clone --depth 1 https://github.com/termux/termux-widget.git                 termux-apps-main/termux-widget
+        git clone --depth 1 https://github.com/termux/termux-api.git                    termux-apps-main/termux-api
+        git clone --depth 1 https://github.com/termux/termux-boot.git                   termux-apps-main/termux-boot
+        git clone --depth 1 https://github.com/termux/termux-styling.git                termux-apps-main/termux-styling
+        git clone --depth 1 https://github.com/termux/termux-app.git                    termux-apps-main/termux-app
+        git clone --depth 1 https://github.com/termux/termux-gui.git                    termux-apps-main/termux-gui
+        git clone --depth 1 --recursive https://github.com/termux/termux-x11.git        termux-apps-main/termux-x11
+        # special case - for "F-Droid" Termux, it is necessary to move the termux-am-library subfolder of
+        # the termux-am-library repository, which contains its actual code, into the termux-app folder,
+        # where its code needs to be patched and compiled into the main "F-Droid" Termux APK
+        git clone --depth 1 https://github.com/termux/termux-am-library.git             termux-apps-main/termux-am-library
+        mv termux-apps-main/termux-am-library/termux-am-library/                        termux-apps-main/termux-app/termux-am-library
+        rm -rf                                                                          termux-apps-main/termux-am-library/
+    else
+        git clone --depth 1 https://github.com/termux-play-store/termux-packages.git    termux-packages-main
+        git clone --depth 1 https://github.com/termux-play-store/termux-apps.git        termux-apps-main
+    fi
 }
 
 build_plugin() {
-    pushd plugins/$TERMUX_GENERATOR_PLUGIN || exit 13
+    pushd plugins/$TERMUX_GENERATOR_PLUGIN
     ./gradlew build
     popd
 }
 
 install_plugin() {
     mkdir -p termux-apps-main/termux-app/src/main/assets/
-    cp -rf plugins/$TERMUX_GENERATOR_PLUGIN termux-apps-main/termux-app/src/main/assets/ || exit 12
-    apply_patches plugins/$TERMUX_GENERATOR_PLUGIN/bootstrap-patches termux-packages-main
-    apply_patches plugins/$TERMUX_GENERATOR_PLUGIN/app-patches termux-apps-main
+    cp -rf plugins/$TERMUX_GENERATOR_PLUGIN termux-apps-main/termux-app/src/main/assets/
+    apply_patches "plugins/$TERMUX_GENERATOR_PLUGIN/$TERMUX_APP_TYPE-patches/bootstrap-patches" termux-packages-main
+    apply_patches "plugins/$TERMUX_GENERATOR_PLUGIN/$TERMUX_APP_TYPE-patches/app-patches" termux-apps-main
 }
 
 # Funktion, um Bootstrap-Patches anzuwenden
 patch_bootstraps() {
-    apply_patches bootstrap-patches termux-packages-main
+    apply_patches "$TERMUX_APP_TYPE-patches/bootstrap-patches" termux-packages-main
     pushd termux-packages-main
-    portable_sed_i "s/TERMUX_APP__PACKAGE_NAME=\"com.termux\"/TERMUX_APP__PACKAGE_NAME=\"$TERMUX_APP__PACKAGE_NAME\"/g" scripts/properties.sh || exit 10
+    portable_sed_i "s/TERMUX_APP__PACKAGE_NAME=\"com.termux\"/TERMUX_APP__PACKAGE_NAME=\"$TERMUX_APP__PACKAGE_NAME\"/g" scripts/properties.sh
     popd
 }
 
 # Funktion, um Bootstraps zu erstellen
 build_bootstraps() {
-    pushd termux-packages-main || exit 8
+    pushd termux-packages-main
 
-    if [ -z "${ADDITIONAL_PACKAGES}" ]; then
-        scripts/run-docker.sh scripts/generate-bootstraps.sh --build --architectures aarch64,x86_64,arm || exit 11
-    else
-        scripts/run-docker.sh scripts/generate-bootstraps.sh --build --architectures aarch64,x86_64,arm --add "${ADDITIONAL_PACKAGES}" || exit 11
+    local bootstrap_script_args=""
+
+    if [ -n "${ADDITIONAL_PACKAGES}" ]; then
+        bootstrap_script_args+=" --add ${ADDITIONAL_PACKAGES}"
     fi
+
+    if [[ "$TERMUX_APP_TYPE" == "f-droid" ]]; then
+        local bootstrap_script="build-bootstraps.sh"
+        local bootstrap_architectures="aarch64,x86_64,arm,i686"
+    else
+        local bootstrap_script="generate-bootstraps.sh"
+        local bootstrap_architectures="aarch64,x86_64,arm"
+        bootstrap_script_args+=" --build"
+    fi
+
+    if [ -n "${BOOTSTRAP_ARCHITECTURES}" ]; then
+        bootstrap_architectures="$BOOTSTRAP_ARCHITECTURES"
+    fi
+
+    bootstrap_script_args+=" --architectures $bootstrap_architectures"
+
+    scripts/run-docker.sh "scripts/$bootstrap_script" $(echo "$bootstrap_script_args")
 
     popd
 }
 
 # Funktion, um Bootstraps zu kopieren
 copy_bootstraps() {
-    mkdir -p termux-apps-main/termux-app/src/main/assets/
-    cp termux-packages-main/bootstrap-*.zip termux-apps-main/termux-app/src/main/assets/ || exit 12
+    if [[ "$TERMUX_APP_TYPE" == "f-droid" ]]; then
+        local app_assets_dir="app/src/main/assets/"
+    else
+        local app_assets_dir="src/main/assets/"
+    fi
+    mkdir -p "termux-apps-main/termux-app/$app_assets_dir"
+    cp termux-packages-main/bootstrap-*.zip "termux-apps-main/termux-app/$app_assets_dir"
 }
 
 # Funktion, um Ordner zu migrieren
@@ -127,15 +174,18 @@ migrate_termux_folder() {
     PARENT_DIR="$(dirname "$(dirname "$1")")"
     TERMUX_APP__PACKAGE_NAME=$2
     DESTINATION="${PARENT_DIR}/$(echo "$TERMUX_APP__PACKAGE_NAME" | tr . /)/"
-    echo "Migrating folder: renaming ${PARENT_DIR}/com/termux/ to ${DESTINATION}"
+    echo "Migrating folder:"
+    echo "- ${PARENT_DIR}/com/termux/"
+    echo "to"
+    echo "+ ${DESTINATION}"
     mkdir -p "${DESTINATION}"
     mv "${PARENT_DIR}/com/termux/"* "${DESTINATION}"
     rm -r "${PARENT_DIR}/com/termux/"
 }
 
 # Funktion, um die App zu patchen
-patch_app() {
-    apply_patches app-patches termux-apps-main
+patch_apps() {
+    apply_patches "$TERMUX_APP_TYPE-patches/app-patches" termux-apps-main
 
     pushd termux-apps-main
 
@@ -150,7 +200,8 @@ patch_app() {
     done
 
     # Vollständig macOS-kompatible Variante für Verzeichnismigration
-    find "$(pwd)" -type d -name termux | while read -r dir; do
+    find "$(pwd)" -type d -name termux | grep -v -e 'shared/termux' -e 'settings/termux' \
+        | while read -r dir; do
         migrate_termux_folder "$dir" "$TERMUX_APP__PACKAGE_NAME"
     done
 
@@ -158,20 +209,47 @@ patch_app() {
 }
 
 # Funktion, um die App zu bauen
-build_app() {
-    pushd termux-apps-main || exit 13
-    ./gradlew assembleDebug || exit 15
+build_apps() {
+    pushd termux-apps-main
+    if [[ "$TERMUX_APP_TYPE" == "f-droid" ]]; then
+        pushd termux-app
+            ./gradlew publishReleasePublicationToMavenLocal
+        popd
+        for app in *; do
+            pushd "$app"
+            ./gradlew assembleDebug
+            popd
+        done
+        pushd termux-x11
+            ./build_termux_package
+        popd
+    else
+        ./gradlew assembleDebug
+    fi
     popd
 }
 
 # Funktion, um die APK zu kopieren
-copy_app() {
-    cp termux-apps-main/termux-app/build/outputs/apk/debug/*.apk "$TERMUX_APP__PACKAGE_NAME".apk
+move_apks() {
+    if [[ "$TERMUX_APP_TYPE" == "f-droid" ]]; then
+        for apk in termux-apps-main/*/app/build/outputs/apk/debug/*.{apk,deb,xz}; do
+            mv "$apk" "$TERMUX_APP__PACKAGE_NAME-$TERMUX_APP_TYPE-$(basename $apk)"
+        done
+    else
+        for apk in termux-apps-main/*/build/outputs/apk/debug/*.apk; do
+            mv "$apk" "$TERMUX_APP__PACKAGE_NAME-$TERMUX_APP_TYPE-$(basename $apk)"
+        done
+    fi
 }
 
 cd "$(dirname "$0")"
 
-export TERMUX_APP__PACKAGE_NAME="com.termux"
+TERMUX_APP__PACKAGE_NAME="com.termux"
+TERMUX_APP_TYPE="f-droid"
+DO_NOT_CLEAN=""
+TERMUX_GENERATOR_PLUGIN=""
+ADDITIONAL_PACKAGES=""
+BOOTSTRAP_ARCHITECTURES=""
 
 # Argumente verarbeiten
 while (($# > 0))
@@ -179,7 +257,6 @@ do
     case "$1" in
         -d|--dirty)
             DO_NOT_CLEAN=1
-            shift 1
             ;;
         -h|--help)
             show_usage
@@ -187,7 +264,7 @@ do
             ;;
         -a|--add)
             if [ $# -gt 1 ] && [ -n "$2" ] && [[ $2 != -* ]]; then
-                export ADDITIONAL_PACKAGES="$2"
+                ADDITIONAL_PACKAGES="$2"
                 shift 1
             else
                 echo "[!] Option '--add' requires an argument."
@@ -197,7 +274,7 @@ do
             ;;
         -n|--name)
             if [ $# -gt 1 ] && [ -n "$2" ] && [[ $2 != -* ]]; then
-                export TERMUX_APP__PACKAGE_NAME="$2"
+                TERMUX_APP__PACKAGE_NAME="$2"
                 if [[ $TERMUX_APP__PACKAGE_NAME == *"com.termux"* ]]; then
                         echo "[!] Sorry, please choose a unique custom name that does not contain 'com.termux'"
                         echo "(and is not an exact substring of it either) to avoid side effects."
@@ -211,9 +288,36 @@ do
                 exit 1
             fi
             ;;
+        -t|--type)
+            if [ $# -gt 1 ] && [ -n "$2" ] && [[ $2 != -* ]]; then
+                case "$2" in
+                    f-droid) TERMUX_APP_TYPE="$2" ;;
+                    play-store) TERMUX_APP_TYPE="$2" ;;
+                    *)
+                        echo "[!] Unsupported app type '$2'. Choose one of: [f-droid, play-store]."
+                        exit 1
+                        ;;
+                esac
+                shift 1
+            else
+                echo "[!] Option '--type' requires an argument."
+                show_usage
+                exit 1
+            fi
+            ;;
+		--architectures)
+            if [ $# -gt 1 ] && [ -n "$2" ] && [[ $2 != -* ]]; then
+                BOOTSTRAP_ARCHITECTURES="$2"
+                shift 1
+            else
+                echo "[!] Option '--architectures' requires an argument." 1>&2
+                show_usage
+                return 1
+            fi
+            ;;
         -p|--plugin)
             if [ $# -gt 1 ] && [ -n "$2" ] && [[ $2 != -* ]]; then
-                export TERMUX_GENERATOR_PLUGIN="$2"
+                TERMUX_GENERATOR_PLUGIN="$2"
                 shift 1
             else
                 echo "[!] Option '--plugin' requires an argument."
@@ -245,8 +349,8 @@ then
     patch_bootstraps
     build_bootstraps
     copy_bootstraps
-    patch_app
+    patch_apps
 fi
 
-build_app
-copy_app
+build_apps
+move_apks

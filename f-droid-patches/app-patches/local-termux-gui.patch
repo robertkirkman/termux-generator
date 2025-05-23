@@ -1,0 +1,11 @@
+--- a/termux-gui/app/build.gradle
++++ b/termux-gui/app/build.gradle
+@@ -61,7 +61,7 @@ class UpdateProtoAction implements Action {
+         }
+     }
+ }
+-if (System.getenv("GITHUB_ACTIONS") == null) {
++if (false) {
+     tasks.register("gen-proto-keycodes") {
+         actions.push(new UpdateProtoAction(projectDir.path, android.sdkDirectory.path, android.compileSdk.toString()))
+     }

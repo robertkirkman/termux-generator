@@ -1,0 +1,16 @@
+--- a/termux-app/termux-shared/build.gradle
++++ b/termux-app/termux-shared/build.gradle
+@@ -27,7 +27,7 @@ android {
+ 
+         implementation project(":terminal-view")
+ 
+-        implementation "com.termux:termux-am-library:v2.0.0"
++        implementation project(":termux-am-library")
+     }
+ 
+     defaultConfig {
+--- a/termux-app/settings.gradle
++++ b/termux-app/settings.gradle
+@@ -1 +1 @@
+-include ':app', ':termux-shared', ':terminal-emulator', ':terminal-view'
++include ':app', ':termux-shared', ':terminal-emulator', ':terminal-view', ':termux-am-library'

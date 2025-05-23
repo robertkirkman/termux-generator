@@ -1,6 +1,11 @@
 # termux-generator
 
-This script builds a vanilla, or optionally modified with custom plugins, [termux-play-store/termux-apps/termux-app](https://github.com/termux-play-store/termux-apps/tree/main/termux-app) from source, but allows changing the package name from `com.termux` to anything else with a single command.
+This script builds a [termux/termux-app](https://github.com/termux/termux-app) or [termux-play-store/termux-apps/termux-app](https://github.com/termux-play-store/termux-apps/tree/main/termux-app) from source, but allows changing the package name from `com.termux` to anything else with a single command.
+
+> [!TIP]
+> termux-generator now supports using **"F-Droid" Termux** as the fork base!
+> The original "F-Droid" Termux project is upstream of "Google Play" Termux.
+> At time of writing, it has some bootstrap storage use inefficiency and may be more susceptible to errors when additional packages are built with `--add`, but provides slightly newer packages at build-time, more UI features, support for Android 7 through 10, and `termux-exec` 2+ for better Android 14+ support.
 
 ### Dependencies
 
@@ -58,15 +63,14 @@ sudo reboot
 #### Using termux-generator
 
 > [!IMPORTANT]
-> Best-case typical time to compile with no arguments: **1 hour**
-> 
-> Best-case typical time to compile the below example with `--name` and `--add`: **3 hours**
+> Best-case typical time to compile the below example with added packages and only the aarch64 bootstrap: **3 hours**
 
 ```bash
 git clone https://github.com/robertkirkman/termux-generator.git
 cd termux-generator
 ./build-termux.sh --name a.copy.of.termux.with.the.location.changed \
-                  --add build-essential,cmake,python,proot-distro
+                  --add build-essential,cmake,python,proot-distro \
+                  --architectures aarch64
 ```
 
 > [!IMPORTANT]

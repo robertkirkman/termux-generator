@@ -1,0 +1,13 @@
+--- a/packages/debianutils/build.sh
++++ b/packages/debianutils/build.sh
+@@ -3,8 +3,8 @@ TERMUX_PKG_DESCRIPTION="Small utilities which are used primarily by the installa
+ TERMUX_PKG_LICENSE="GPL-2.0"
+ TERMUX_PKG_MAINTAINER="@termux"
+ TERMUX_PKG_VERSION="5.22"
+-TERMUX_PKG_SRCURL=https://deb.debian.org/debian/pool/main/d/debianutils/debianutils_${TERMUX_PKG_VERSION}.tar.xz
+-TERMUX_PKG_SHA256=043569241cdd893cc45e00f917c94c123d0c24143895d91c4d08c6c567e35155
++TERMUX_PKG_SRCURL=https://salsa.debian.org/debian/debianutils/-/archive/debian/${TERMUX_PKG_VERSION}/debianutils-debian-${TERMUX_PKG_VERSION}.tar.gz
++TERMUX_PKG_SHA256=035852d3ab1e167ac1c0403334407044414597a31f7e9c65000c86da63f92bef
+ TERMUX_PKG_AUTO_UPDATE=true
+ 
+ TERMUX_PKG_RM_AFTER_INSTALL="
