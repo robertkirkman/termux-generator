@@ -1,0 +1,52 @@
+--- a/packages/dpkg/dpkg-perl.subpackage.sh
++++ b/packages/dpkg/dpkg-perl.subpackage.sh
+@@ -8,8 +8,8 @@ termux_step_create_subpkg_debscripts() {
+ 	#!$TERMUX_PREFIX/bin/bash
+ 	set -e
+ 
+-	echo "Sideloading Perl Locale::gettext ..."
+-	cpan -fi Locale::gettext
++	echo "[$TERMUX_APP__PACKAGE_NAME] Skipping sideloading Perl Locale::gettext to avoid inconvenience..."
++	echo "[$TERMUX_APP__PACKAGE_NAME] Run 'cpan -fi Locale::gettext' manually when desired."
+ 
+ 	exit 0
+ 	POSTINST_EOF
+--- a/packages/intltool/build.sh
++++ b/packages/intltool/build.sh
+@@ -14,8 +14,8 @@ termux_step_create_debscripts()  {
+ 	#!$TERMUX_PREFIX/bin/bash
+ 	set -e
+ 
+-	echo "Sideloading Perl XML::Parser..."
+-	cpan install XML::Parser
++	echo "[$TERMUX_APP__PACKAGE_NAME] Skipping sideloading Perl XML::Parser to avoid inconvenience..."
++	echo "[$TERMUX_APP__PACKAGE_NAME] Run 'cpan install XML::Parser' manually when desired."
+ 
+ 	exit 0
+ 	POSTINST_EOF
+--- a/packages/sendxmpp/build.sh
++++ b/packages/sendxmpp/build.sh
+@@ -18,8 +18,8 @@ termux_step_create_debscripts()  {
+ 	#!$TERMUX_PREFIX/bin/bash
+ 	set -e
+ 
+-	echo "Sideloading Perl Authen::SASL and Net::XMPP ..."
+-	cpan -fi Authen::SASL Net::XMPP
++	echo "[$TERMUX_APP__PACKAGE_NAME] Skipping sideloading Perl Authen::SASL and Net::XMPP to avoid inconvenience..."
++	echo "[$TERMUX_APP__PACKAGE_NAME] Run 'cpan -fi Authen::SASL Net::XMPP' manually when desired."
+ 
+ 	exit 0
+ 	POSTINST_EOF
+--- a/x11-packages/xdg-utils/build.sh
++++ b/x11-packages/xdg-utils/build.sh
+@@ -33,8 +33,8 @@ termux_step_create_debscripts() {
+ 	#!$TERMUX_PREFIX/bin/bash
+ 	set -e
+ 
+-	echo "Sideloading Perl File::MimeInfo ..."
+-	cpan -fi File::MimeInfo
++	echo "[$TERMUX_APP__PACKAGE_NAME] Skipping sideloading Perl File::MimeInfo to avoid inconvenience..."
++	echo "[$TERMUX_APP__PACKAGE_NAME] Run 'cpan -fi File::MimeInfo' manually when desired."
+ 
+ 	exit 0
+ 	POSTINST_EOF
