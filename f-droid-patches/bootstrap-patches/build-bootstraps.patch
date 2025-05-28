@@ -1,5 +1,14 @@
 --- a/scripts/bootstrap/termux-bootstrap-second-stage.sh
 +++ b/scripts/bootstrap/termux-bootstrap-second-stage.sh
+@@ -106,7 +106,7 @@ run_bootstrap_second_stage() {
+ 	return_value=$?
+ 	if [ $return_value -ne 0 ]; then
+ 		if [ $return_value -eq 1 ] && [[ "$output" == *"File exists"* ]]; then
+-			log "The termux bootstrap second stage has already been run before and cannot be run again."
++			log "The termux bootstrap second stage has already been run before or has been disabled and cannot be run again."
+ 			log "If you still want to force run it again (not recommended), \
+ like in case of previous failure and it must be re-run again for testing, \
+ then delete the '@TERMUX_BOOTSTRAP__BOOTSTRAP_SECOND_STAGE_DIR@/@TERMUX_BOOTSTRAP__BOOTSTRAP_SECOND_STAGE_ENTRY_POINT_SUBFILE@.lock' \
 @@ -198,6 +198,8 @@ run_package_postinst_maintainer_scripts() {
  				maintscript_debug=1
  			fi
@@ -32,6 +41,18 @@
  		EXTRACTED_PACKAGES+=("$current_package_name")
  
  		package_tmpdir="${BOOTSTRAP_PKGDIR}/${current_package_name}"
+@@ -218,6 +225,11 @@ add_termux_bootstrap_second_stage_files() {
+ 		> "${BOOTSTRAP_ROOTFS}/${TERMUX_BOOTSTRAP__BOOTSTRAP_SECOND_STAGE_DIR}/$TERMUX_BOOTSTRAP__BOOTSTRAP_SECOND_STAGE_ENTRY_POINT_SUBFILE"
+ 	chmod 700 "${BOOTSTRAP_ROOTFS}/${TERMUX_BOOTSTRAP__BOOTSTRAP_SECOND_STAGE_DIR}/$TERMUX_BOOTSTRAP__BOOTSTRAP_SECOND_STAGE_ENTRY_POINT_SUBFILE"
+ 
++	if [ -n "${DISABLE_BOOTSTRAP_SECOND_STAGE-}" ]; then
++		ln -s "$TERMUX_BOOTSTRAP__BOOTSTRAP_SECOND_STAGE_ENTRY_POINT_SUBFILE" \
++			"${BOOTSTRAP_ROOTFS}/${TERMUX_BOOTSTRAP__BOOTSTRAP_SECOND_STAGE_DIR}/$TERMUX_BOOTSTRAP__BOOTSTRAP_SECOND_STAGE_ENTRY_POINT_SUBFILE.lock"
++	fi
++
+ 	# TODO: Remove it when Termux app supports `pacman` bootstraps installation.
+ 	sed -e "s|@TERMUX_PREFIX@|${TERMUX_PREFIX}|g" \
+ 		-e "s|@TERMUX__PREFIX__PROFILE_D_DIR@|${TERMUX__PREFIX__PROFILE_D_DIR}|g" \
 @@ -243,7 +250,13 @@ create_bootstrap_archive() {
  			rm -f "$link"
  		done < <(find . -type l -print0)
@@ -47,14 +68,24 @@
  	)
  
  	mv -f "${BOOTSTRAP_TMPDIR}/bootstrap-${1}.zip" "$TERMUX_PACKAGES_DIRECTORY/"
+@@ -370,6 +388,9 @@ main() {
+ 					return 1
+ 				fi
+ 				;;
++			--disable-bootstrap-second-stage)
++				DISABLE_BOOTSTRAP_SECOND_STAGE=1
++				;;
+ 			-f)
+ 				BUILD_PACKAGE_OPTIONS+=("-f")
+ 				FORCE_BUILD_PACKAGES=1
 @@ -429,7 +442,10 @@ main() {
  
  		# Core utilities.
  		PACKAGES+=("bash") # Used by `termux-bootstrap-second-stage.sh`
 -		PACKAGES+=("bzip2")
-+       # F-Droid Termux currently has problems with fully bootstrapping subpackages.
-+       # adding them by specifying only parent packages, at the cost of a lot of space,
-+       # is the most naive workaround. there are other solutions being developed elsewhere.
++		# F-Droid Termux currently has problems with fully bootstrapping subpackages.
++		# adding them by specifying only parent packages, at the cost of a lot of space,
++		# is the most naive workaround. there are other solutions being developed elsewhere.
 +		PACKAGES+=("libbz2")
  		if ! ${BOOTSTRAP_ANDROID10_COMPATIBLE}; then
  			PACKAGES+=("command-not-found")

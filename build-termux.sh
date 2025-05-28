@@ -16,6 +16,7 @@ show_usage() {
     echo " -t, --type APP_TYPE         Specify the Termux project to fork [f-droid, play-store]. Defaults to f-droid."
     echo " --architectures ARCH_LIST   Specify the bootstrap architectures to include in a comma-separated list."
     echo " -p, --plugin PLUGIN         Specify a plugin from the plugins folder to apply during building."
+    echo " --disable-bootstrap-second-stage Disable the automatic execution of termux-bootstrap-second-stage.sh. Currently, this option only affects builds of type f-droid."
     echo " -d, --dirty                 Build without cleaning previous artifacts."
     echo
 }
@@ -141,6 +142,9 @@ build_bootstraps() {
     if [[ "$TERMUX_APP_TYPE" == "f-droid" ]]; then
         local bootstrap_script="build-bootstraps.sh"
         local bootstrap_architectures="aarch64,x86_64,arm,i686"
+        if [ -n "${DISABLE_BOOTSTRAP_SECOND_STAGE-}" ]; then
+            bootstrap_script_args+=" --disable-bootstrap-second-stage"
+        fi
     else
         local bootstrap_script="generate-bootstraps.sh"
         local bootstrap_architectures="aarch64,x86_64,arm"
@@ -250,6 +254,7 @@ DO_NOT_CLEAN=""
 TERMUX_GENERATOR_PLUGIN=""
 ADDITIONAL_PACKAGES=""
 BOOTSTRAP_ARCHITECTURES=""
+DISABLE_BOOTSTRAP_SECOND_STAGE=""
 
 # Argumente verarbeiten
 while (($# > 0))
@@ -324,6 +329,9 @@ do
                 show_usage
                 exit 1
             fi
+            ;;
+        --disable-bootstrap-second-stage)
+            DISABLE_BOOTSTRAP_SECOND_STAGE=1
             ;;
         *)
             echo "[!] Unknown option '$1'"
