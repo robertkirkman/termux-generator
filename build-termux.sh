@@ -24,7 +24,8 @@ show_usage() {
     echo "                                  'adb [-s ID] shell am start -n [APP_NAME]/.app.TermuxActivity'."
     echo "                                  If you would like automatic setup of Termux:Boot as well so that"
     echo "                                  Termux and its SSH server both launch automatically at device unlock,"
-    echo "                                  please open an issue to request that!"
+    echo "                                  install Termux:Boot also and launch it at least once, using"
+    echo "                                  'adb [-s ID] shell am start -n [APP_NAME].boot/.BootActivity'!"
     echo " -d, --dirty                      Build without cleaning previous artifacts."
     echo
 }
@@ -132,19 +133,30 @@ install_plugin() {
 # Funktion, um Bootstrap-Patches anzuwenden
 patch_bootstraps() {
     apply_patches "$TERMUX_APP_TYPE-patches/bootstrap-patches" termux-packages-main
-    pushd termux-packages-main
+
+    local bashrc="termux-packages-main/packages/bash/etc-bash.bashrc"
 
     if [[ -n "$ENABLE_SSH_SERVER" ]]; then
-        echo "if [ ! -f \"\$HOME/.termux_authinfo\" ]; then" >> packages/bash/etc-bash.bashrc
-        echo "    printf '$DEFAULT_PASSWORD\n$DEFAULT_PASSWORD' | passwd" >> packages/bash/etc-bash.bashrc
-        echo "fi" >> packages/bash/etc-bash.bashrc
-        echo "sshd" >> packages/bash/etc-bash.bashrc
+        cat <<- EOF >> "$bashrc"
+            if [ ! -f "\$HOME/.termux/boot/start-sshd" ]; then
+                mkdir -p "\$HOME/.termux/boot"
+                echo '#!/data/data/$TERMUX_APP__PACKAGE_NAME/files/usr/bin/sh' > "\$HOME/.termux/boot/start-sshd"
+                echo '. /data/data/$TERMUX_APP__PACKAGE_NAME/files/usr/etc/bash.bashrc' >> "\$HOME/.termux/boot/start-sshd"
+                chmod +x "\$HOME/.termux/boot/start-sshd"
+            fi
+            if [ ! -f "\$HOME/.termux_authinfo" ]; then
+                printf '$DEFAULT_PASSWORD\n$DEFAULT_PASSWORD' | passwd
+            fi
+            termux-wake-lock
+            sshd
+EOF
     fi
 
     if [[ "$TERMUX_APP__PACKAGE_NAME" == "com.termux" ]]; then
         return
     fi
 
+    pushd termux-packages-main
     # TODO: more patching is required than this alone.
     # there have been many more instances of string "com.termux" added to termux-packages repository recently.
     portable_sed_i "s/TERMUX_APP__PACKAGE_NAME=\"com.termux\"/TERMUX_APP__PACKAGE_NAME=\"$TERMUX_APP__PACKAGE_NAME\"/g" scripts/properties.sh
