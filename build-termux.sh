@@ -147,7 +147,6 @@ patch_bootstraps() {
             if [ ! -f "\$HOME/.termux_authinfo" ]; then
                 printf '$DEFAULT_PASSWORD\n$DEFAULT_PASSWORD' | passwd
             fi
-            termux-wake-lock
             sshd
 EOF
     fi
