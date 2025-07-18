@@ -10,14 +10,22 @@ show_usage() {
     echo "Generate Termux application."
     echo
     echo "Options:"
-    echo " -h, --help                  Show this help."
-    echo " -a, --add PKG_LIST          Include additional packages in bootstrap archive."
-    echo " -n, --name APP_NAME         Specify TERMUX_APP__PACKAGE_NAME name."
-    echo " -t, --type APP_TYPE         Specify the Termux project to fork [f-droid, play-store]. Defaults to f-droid."
-    echo " --architectures ARCH_LIST   Specify the bootstrap architectures to include in a comma-separated list."
-    echo " -p, --plugin PLUGIN         Specify a plugin from the plugins folder to apply during building."
-    echo " --disable-bootstrap-second-stage Disable the automatic execution of termux-bootstrap-second-stage.sh. Currently, this option only affects builds of type f-droid."
-    echo " -d, --dirty                 Build without cleaning previous artifacts."
+    echo " -h, --help                       Show this help."
+    echo " -a, --add PKG_LIST               Include additional packages in bootstrap archive."
+    echo " -n, --name APP_NAME              Specify TERMUX_APP__PACKAGE_NAME name."
+    echo " -t, --type APP_TYPE              Specify the Termux project to fork [f-droid, play-store]. Defaults to f-droid."
+    echo " --architectures ARCH_LIST        Specify the bootstrap architectures to include in a comma-separated list."
+    echo " -p, --plugin PLUGIN              Specify a plugin from the plugins folder to apply during building."
+    echo " --disable-bootstrap-second-stage Disable the automatic execution of termux-bootstrap-second-stage.sh."
+    echo "                                  Currently, this option only affects builds of type f-droid."
+    echo " --enable-ssh-server              Bundle an SSH server with the default password 'changeme'."
+    echo "                                  The SSH server will start when the main Termux Activity is launched."
+    echo "                                  This can be done on a headless device using the command"
+    echo "                                  'adb [-s ID] shell am start -n [APP_NAME]/.app.TermuxActivity'."
+    echo "                                  If you would like automatic setup of Termux:Boot as well so that"
+    echo "                                  Termux and its SSH server both launch automatically at device unlock,"
+    echo "                                  please open an issue to request that!"
+    echo " -d, --dirty                      Build without cleaning previous artifacts."
     echo
 }
 
@@ -125,6 +133,20 @@ install_plugin() {
 patch_bootstraps() {
     apply_patches "$TERMUX_APP_TYPE-patches/bootstrap-patches" termux-packages-main
     pushd termux-packages-main
+
+    if [[ -n "$ENABLE_SSH_SERVER" ]]; then
+        echo "if [ ! -f \"\$HOME/.termux_authinfo\" ]; then" >> packages/bash/etc-bash.bashrc
+        echo "    printf '$DEFAULT_PASSWORD\n$DEFAULT_PASSWORD' | passwd" >> packages/bash/etc-bash.bashrc
+        echo "fi" >> packages/bash/etc-bash.bashrc
+        echo "sshd" >> packages/bash/etc-bash.bashrc
+    fi
+
+    if [[ "$TERMUX_APP__PACKAGE_NAME" == "com.termux" ]]; then
+        return
+    fi
+
+    # TODO: more patching is required than this alone.
+    # there have been many more instances of string "com.termux" added to termux-packages repository recently.
     portable_sed_i "s/TERMUX_APP__PACKAGE_NAME=\"com.termux\"/TERMUX_APP__PACKAGE_NAME=\"$TERMUX_APP__PACKAGE_NAME\"/g" scripts/properties.sh
     popd
 }
@@ -191,6 +213,10 @@ migrate_termux_folder() {
 patch_apps() {
     apply_patches "$TERMUX_APP_TYPE-patches/app-patches" termux-apps-main
 
+    if [[ "$TERMUX_APP__PACKAGE_NAME" == "com.termux" ]]; then
+        return
+    fi
+
     pushd termux-apps-main
 
     TERMUX_APP__PACKAGE_NAME_UNDERSCORE=$(echo "$TERMUX_APP__PACKAGE_NAME" | tr . _)
@@ -255,6 +281,8 @@ TERMUX_GENERATOR_PLUGIN=""
 ADDITIONAL_PACKAGES=""
 BOOTSTRAP_ARCHITECTURES=""
 DISABLE_BOOTSTRAP_SECOND_STAGE=""
+ENABLE_SSH_SERVER=""
+DEFAULT_PASSWORD="changeme"
 
 # Argumente verarbeiten
 while (($# > 0))
@@ -269,7 +297,12 @@ do
             ;;
         -a|--add)
             if [ $# -gt 1 ] && [ -n "$2" ] && [[ $2 != -* ]]; then
-                ADDITIONAL_PACKAGES="$2"
+            ENABLE_SSH_SERVER=1
+                if [ -n "$ADDITIONAL_PACKAGES" ]; then
+                    ADDITIONAL_PACKAGES+=",$2"
+                else
+                    ADDITIONAL_PACKAGES="$2"
+                fi
                 shift 1
             else
                 echo "[!] Option '--add' requires an argument."
@@ -332,6 +365,14 @@ do
             ;;
         --disable-bootstrap-second-stage)
             DISABLE_BOOTSTRAP_SECOND_STAGE=1
+            ;;
+        --enable-ssh-server)
+            ENABLE_SSH_SERVER=1
+            if [ -n "$ADDITIONAL_PACKAGES" ]; then
+                ADDITIONAL_PACKAGES+=",openssh"
+            else
+                ADDITIONAL_PACKAGES="openssh"
+            fi
             ;;
         *)
             echo "[!] Unknown option '$1'"
