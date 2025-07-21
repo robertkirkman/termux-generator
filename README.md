@@ -12,8 +12,9 @@ This script builds a [termux/termux-app](https://github.com/termux/termux-app) o
 - Docker
 - Android SDK
 - OpenJDK 17
-- git
-- patch
+- `git`
+- `patch`
+- `bash`
 
 ### Example
 

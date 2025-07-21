@@ -15,3 +15,25 @@
  	# Can't apply these patch normally since they contains special @TERMUX..@ text which normal patch replaces:
  	for d in "$TERMUX_PKG_BUILDER_DIR"/*.diff; do
  		patch -p1 < "$d"
+diff --git a/packages/command-not-found/name-change-helper.patch b/packages/command-not-found/name-change-helper.patch
+new file mode 100644
+index 0000000..0250f2e
+--- /dev/null
++++ b/packages/command-not-found/name-change-helper.patch
+@@ -0,0 +1,16 @@
++diff --git a/generate-db.js b/generate-db.js
++index f1ff919..46d3c9b 100755
++--- a/generate-db.js
+++++ b/generate-db.js
++@@ -6,7 +6,10 @@ import { promisify } from "node:util";
++ 
++ const gunzipAsync = promisify(gunzip);
++ 
++-const { TERMUX_SCRIPTDIR, TERMUX_PREFIX, TERMUX_ARCH } = process.env;
+++const { TERMUX_SCRIPTDIR, TERMUX_ARCH } = process.env;
+++// command-not-found retrieves metadata from official package mirror,
+++// which stores packages built with official paths.
+++const TERMUX_PREFIX = "/data/data/com.termux/files/usr";
++ 
++ if (!TERMUX_SCRIPTDIR) {
++   throw new Error("TERMUX_PKG_CACHEDIR environment variable is not defined");

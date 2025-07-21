@@ -20,6 +20,11 @@ show_usage() {
     echo "                                  Currently, this option only affects builds of type f-droid."
     echo " --enable-ssh-server              Bundle an SSH server with the default password 'changeme'."
     echo "                                  The SSH server will start when the main Termux Activity is launched."
+    echo "                                  NOTE: This option depends on the bootstrap second stage,"
+    echo "                                  therefore '--disable-bootstrap-second-stage' will prevent it"
+    echo "                                  from working, and since builds of type play-store do not implement"
+    echo "                                  the bootstrap second stage, currently,"
+    echo "                                  this option only affects builds of type f-droid."
     echo "                                  This can be done on a headless device using the command"
     echo "                                  'adb [-s ID] shell am start -n [APP_NAME]/.app.TermuxActivity'."
     echo "                                  If you would like automatic setup of Termux:Boot as well so that"
@@ -31,8 +36,7 @@ show_usage() {
 }
 
 portable_sed_i() {
-    if sed v </dev/null 2> /dev/null
-    then
+    if sed v </dev/null 2> /dev/null; then
         sed -i "$@"
     else
         sed -i '' "$@"
@@ -40,15 +44,51 @@ portable_sed_i() {
 }
 
 apply_patches() {
-    srcdir=$(realpath "$1")
-    targetdir=$(realpath "$2")
-    local PATCHES=$(find "$srcdir" -type f | sort)
-    pushd $targetdir
-    for patch in $PATCHES
-    do
+    local srcdir=$(realpath "$1")
+    local targetdir=$(realpath "$2")
+    local patches=$(find "$srcdir" -type f | sort)
+
+    pushd "$targetdir"
+
+    for patch in $patches; do
         patch -p1 < "$patch"
     done
+
     popd
+}
+
+replace_termux_name() {
+    local targetdir="$1"
+    local replacement_name="$2"
+    local replacement_name_underscore=$(echo "$replacement_name" | tr . _)
+    local file
+
+    pushd "$targetdir"
+    
+    # Nur Textdateien bearbeiten, um Fehler zu vermeiden
+    find . -type f -exec file {} + | grep "text" | cut -d: -f1 | while read -r file; do
+        portable_sed_i -e "s/>Termux</>$replacement_name</g" \
+                       -e "s/\"Termux\"/\"$replacement_name\"/g" \
+                       -e "s/com\.termux/$replacement_name/g" \
+                       -e "s/com_termux/$replacement_name_underscore/g" "$file"
+    done
+
+    popd
+}
+
+# Funktion, um Ordner zu migrieren
+migrate_termux_folder() {
+    local parentdir="$(dirname "$(dirname "$1")")"
+    local replacement_name="$2"
+    local destination="${parentdir}/$(echo "$replacement_name" | tr . /)/"
+
+    echo "Migrating folder:"
+    echo "- ${parentdir}/com/termux/"
+    echo "to"
+    echo "+ ${destination}"
+    mkdir -p "${destination}"
+    mv "${parentdir}/com/termux/"* "${destination}"
+    rm -r "${parentdir}/com/termux/"
 }
 
 # Funktion, um den Paketnamen zu überprüfen
@@ -118,20 +158,30 @@ download() {
 }
 
 build_plugin() {
-    pushd plugins/$TERMUX_GENERATOR_PLUGIN
+    pushd "plugins/$TERMUX_GENERATOR_PLUGIN"
+
     ./gradlew build
+
     popd
 }
 
 install_plugin() {
     mkdir -p termux-apps-main/termux-app/src/main/assets/
-    cp -rf plugins/$TERMUX_GENERATOR_PLUGIN termux-apps-main/termux-app/src/main/assets/
+    cp -rf "plugins/$TERMUX_GENERATOR_PLUGIN" termux-apps-main/termux-app/src/main/assets/
     apply_patches "plugins/$TERMUX_GENERATOR_PLUGIN/$TERMUX_APP_TYPE-patches/bootstrap-patches" termux-packages-main
     apply_patches "plugins/$TERMUX_GENERATOR_PLUGIN/$TERMUX_APP_TYPE-patches/app-patches" termux-apps-main
 }
 
 # Funktion, um Bootstrap-Patches anzuwenden
 patch_bootstraps() {
+    # The reason why it is necessary to replace the name first, then patch bootstraps, but do the reverse for apps,
+    # is because command-not-found must be partially unpatched back to the default TERMUX_PREFIX to build,
+    # so that patch must apply after the bootstraps' name replacement has completed, but the apps contain the
+    # string "com.termux" in their code in many more places than the bootstraps do, so it's easier to patch them first.
+    if [[ "$TERMUX_APP__PACKAGE_NAME" != "com.termux" ]]; then
+        replace_termux_name termux-packages-main "$TERMUX_APP__PACKAGE_NAME"
+    fi
+
     apply_patches "$TERMUX_APP_TYPE-patches/bootstrap-patches" termux-packages-main
 
     local bashrc="termux-packages-main/packages/bash/etc-bash.bashrc"
@@ -150,16 +200,6 @@ patch_bootstraps() {
             sshd
 EOF
     fi
-
-    if [[ "$TERMUX_APP__PACKAGE_NAME" == "com.termux" ]]; then
-        return
-    fi
-
-    pushd termux-packages-main
-    # TODO: more patching is required than this alone.
-    # there have been many more instances of string "com.termux" added to termux-packages repository recently.
-    portable_sed_i "s/TERMUX_APP__PACKAGE_NAME=\"com.termux\"/TERMUX_APP__PACKAGE_NAME=\"$TERMUX_APP__PACKAGE_NAME\"/g" scripts/properties.sh
-    popd
 }
 
 # Funktion, um Bootstraps zu erstellen
@@ -167,6 +207,14 @@ build_bootstraps() {
     pushd termux-packages-main
 
     local bootstrap_script_args=""
+
+    if [ -n "$ENABLE_SSH_SERVER" ]; then
+        if [ -n "$ADDITIONAL_PACKAGES" ]; then
+            ADDITIONAL_PACKAGES+=",openssh"
+        else
+            ADDITIONAL_PACKAGES="openssh"
+        fi
+    fi
 
     if [ -n "${ADDITIONAL_PACKAGES}" ]; then
         bootstrap_script_args+=" --add ${ADDITIONAL_PACKAGES}"
@@ -190,7 +238,7 @@ build_bootstraps() {
 
     bootstrap_script_args+=" --architectures $bootstrap_architectures"
 
-    scripts/run-docker.sh "scripts/$bootstrap_script" $(echo "$bootstrap_script_args")
+    scripts/run-docker.sh "scripts/$bootstrap_script" $bootstrap_script_args
 
     popd
 }
@@ -206,20 +254,6 @@ copy_bootstraps() {
     cp termux-packages-main/bootstrap-*.zip "termux-apps-main/termux-app/$app_assets_dir"
 }
 
-# Funktion, um Ordner zu migrieren
-migrate_termux_folder() {
-    PARENT_DIR="$(dirname "$(dirname "$1")")"
-    TERMUX_APP__PACKAGE_NAME=$2
-    DESTINATION="${PARENT_DIR}/$(echo "$TERMUX_APP__PACKAGE_NAME" | tr . /)/"
-    echo "Migrating folder:"
-    echo "- ${PARENT_DIR}/com/termux/"
-    echo "to"
-    echo "+ ${DESTINATION}"
-    mkdir -p "${DESTINATION}"
-    mv "${PARENT_DIR}/com/termux/"* "${DESTINATION}"
-    rm -r "${PARENT_DIR}/com/termux/"
-}
-
 # Funktion, um die App zu patchen
 patch_apps() {
     apply_patches "$TERMUX_APP_TYPE-patches/app-patches" termux-apps-main
@@ -228,21 +262,12 @@ patch_apps() {
         return
     fi
 
+    replace_termux_name termux-apps-main "$TERMUX_APP__PACKAGE_NAME"
+
     pushd termux-apps-main
 
-    TERMUX_APP__PACKAGE_NAME_UNDERSCORE=$(echo "$TERMUX_APP__PACKAGE_NAME" | tr . _)
-    
-    # Nur Textdateien bearbeiten, um Fehler zu vermeiden
-    find . -type f -exec file {} + | grep "text" | cut -d: -f1 | while read -r file; do
-        portable_sed_i -e "s/>Termux</>$TERMUX_APP__PACKAGE_NAME</g" \
-                       -e "s/\"Termux\"/\"$TERMUX_APP__PACKAGE_NAME\"/g" \
-                       -e "s/com\.termux/$TERMUX_APP__PACKAGE_NAME/g" \
-                       -e "s/com_termux/$TERMUX_APP__PACKAGE_NAME_UNDERSCORE/g" "$file"
-    done
-
     # Vollständig macOS-kompatible Variante für Verzeichnismigration
-    find "$(pwd)" -type d -name termux | grep -v -e 'shared/termux' -e 'settings/termux' \
-        | while read -r dir; do
+    find "$(pwd)" -type d -name termux | grep -v -e 'shared/termux' -e 'settings/termux' | while read -r dir; do
         migrate_termux_folder "$dir" "$TERMUX_APP__PACKAGE_NAME"
     done
 
@@ -252,6 +277,7 @@ patch_apps() {
 # Funktion, um die App zu bauen
 build_apps() {
     pushd termux-apps-main
+
     if [[ "$TERMUX_APP_TYPE" == "f-droid" ]]; then
         pushd termux-app
             ./gradlew publishReleasePublicationToMavenLocal
@@ -267,6 +293,7 @@ build_apps() {
     else
         ./gradlew assembleDebug
     fi
+
     popd
 }
 
@@ -296,8 +323,7 @@ ENABLE_SSH_SERVER=""
 DEFAULT_PASSWORD="changeme"
 
 # Argumente verarbeiten
-while (($# > 0))
-do
+while (($# > 0)); do
     case "$1" in
         -d|--dirty)
             DO_NOT_CLEAN=1
@@ -308,12 +334,7 @@ do
             ;;
         -a|--add)
             if [ $# -gt 1 ] && [ -n "$2" ] && [[ $2 != -* ]]; then
-            ENABLE_SSH_SERVER=1
-                if [ -n "$ADDITIONAL_PACKAGES" ]; then
-                    ADDITIONAL_PACKAGES+=",$2"
-                else
-                    ADDITIONAL_PACKAGES="$2"
-                fi
+                ADDITIONAL_PACKAGES="$2"
                 shift 1
             else
                 echo "[!] Option '--add' requires an argument."
@@ -379,11 +400,6 @@ do
             ;;
         --enable-ssh-server)
             ENABLE_SSH_SERVER=1
-            if [ -n "$ADDITIONAL_PACKAGES" ]; then
-                ADDITIONAL_PACKAGES+=",openssh"
-            else
-                ADDITIONAL_PACKAGES="openssh"
-            fi
             ;;
         *)
             echo "[!] Unknown option '$1'"
@@ -394,15 +410,13 @@ do
     shift 1
 done
 
-if [ -z "${DO_NOT_CLEAN}" ]
-then
+if [ -z "${DO_NOT_CLEAN}" ]; then
     # Validierung und Ausführung
     check_name
     clean_docker
     clean_artifacts
     download
-    if [ -n "$TERMUX_GENERATOR_PLUGIN" ]
-    then
+    if [ -n "$TERMUX_GENERATOR_PLUGIN" ]; then
         build_plugin
         install_plugin
     fi
