@@ -1,0 +1,57 @@
+name: Generate Termux application
+
+on:
+  workflow_dispatch:
+    inputs:
+      add:
+        description: "Include additional packages in bootstrap archive."
+        required: false
+      name:
+        description: "Specify TERMUX_APP__PACKAGE_NAME name."
+        required: false
+      type:
+        description: "Specify the Termux project to fork [f-droid, play-store]. Defaults to f-droid."
+        required: false
+      architectures:
+        description: "Specify the bootstrap architectures to include in a comma-separated list."
+        required: false
+      disable-bootstrap-second-stage:
+        description: "Disable the automatic execution of termux-bootstrap-second-stage.sh."
+        required: false
+        type: boolean
+      enable-ssh-server:
+        description: "Bundle an SSH server with the default password 'changeme'."
+        required: false
+        type: boolean
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+      - name: Set --add
+        if: "${{ github.event.inputs.add != '' }}"
+        run: echo "ADDITIONAL_PACKAGES=--add ${{ github.event.inputs.add }}" >> $GITHUB_ENV
+      - name: Set --name
+        if: "${{ github.event.inputs.name != '' }}"
+        run: echo "TERMUX_APP__PACKAGE_NAME=--name ${{ github.event.inputs.name }}" >> $GITHUB_ENV
+      - name: Set --type
+        if: "${{ github.event.inputs.type != '' }}"
+        run: echo "TERMUX_APP_TYPE=--type ${{ github.event.inputs.type }}" >> $GITHUB_ENV
+      - name: Set --architectures
+        if: "${{ github.event.inputs.architectures != '' }}"
+        run: echo "BOOTSTRAP_ARCHITECTURES=--architectures ${{ github.event.inputs.architectures }}" >> $GITHUB_ENV
+      - name: Set --disable-bootstrap-second-stage
+        if: "${{ github.event.inputs.disable-bootstrap-second-stage == 'true' }}"
+        run: echo "DISABLE_BOOTSTRAP_SECOND_STAGE=--disable-bootstrap-second-stage" >> $GITHUB_ENV
+      - name: Set --enable-ssh-server
+        if: "${{ github.event.inputs.enable-ssh-server == 'true' }}"
+        run: echo "ENABLE_SSH_SERVER=--enable-ssh-server" >> $GITHUB_ENV
+      - name: Build Termux
+        run: ./build-termux.sh $ADDITIONAL_PACKAGES $TERMUX_APP__PACKAGE_NAME $TERMUX_APP_TYPE $BOOTSTRAP_ARCHITECTURES $DISABLE_BOOTSTRAP_SECOND_STAGE $ENABLE_SSH_SERVER
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4.6.0
+        with:
+          name: Termux APKs
+          path: ./*.apk

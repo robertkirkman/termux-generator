@@ -2,10 +2,7 @@
 
 This script builds a [termux/termux-app](https://github.com/termux/termux-app) or [termux-play-store/termux-apps/termux-app](https://github.com/termux-play-store/termux-apps/tree/main/termux-app) from source, but allows changing the package name from `com.termux` to anything else with a single command.
 
-> [!TIP]
-> termux-generator now supports using **"F-Droid" Termux** as the fork base!
-> The original "F-Droid" Termux project is upstream of "Google Play" Termux.
-> At time of writing, it has some bootstrap storage use inefficiency and may be more susceptible to errors when additional packages are built with `--add`, but provides slightly newer packages at build-time, more UI features, support for Android 7 through 10, and `termux-exec` 2+ for better Android 14+ support.
+## Building Termux locally
 
 ### Dependencies
 
@@ -15,8 +12,6 @@ This script builds a [termux/termux-app](https://github.com/termux/termux-app) o
 - `git`
 - `patch`
 - `bash`
-
-### Example
 
 #### Common Dependencies
 ```bash
@@ -36,7 +31,7 @@ sudo apt install -y android-sdk sdkmanager
 sudo apt install -y google-android-cmdline-tools-13.0-installer
 ```
 
-#### Android SDK Common Setup
+#### Android SDK common setup
 
 ```bash
 echo "export ANDROID_SDK_ROOT=/usr/lib/android-sdk" >> ~/.bashrc && . ~/.bashrc
@@ -61,7 +56,9 @@ sudo usermod -aG docker $(whoami)
 sudo reboot
 ```
 
-#### Using termux-generator
+### Using termux-generator locally
+
+#### Example: build Termux with the location changed and some popular packages preinstalled
 
 > [!IMPORTANT]
 > Best-case typical time to compile the below example with added packages and only the aarch64 bootstrap: **3 hours**
@@ -70,7 +67,7 @@ sudo reboot
 git clone https://github.com/robertkirkman/termux-generator.git
 cd termux-generator
 ./build-termux.sh --name a.copy.of.termux.with.the.location.changed \
-                  --add build-essential,cmake,python,proot-distro \
+                  --add build-essential,cmake,python,proot-distro,ffmpeg \
                   --architectures aarch64
 ```
 
@@ -78,7 +75,7 @@ cd termux-generator
 > Running the command a second time will delete all the modified files and start over. Use `--dirty` if you are troubleshooting.
 
 
-### Example: build Termux with SSH server enabled by default and install it through ADB
+#### Example: build Termux with SSH server enabled by default and install it through ADB
 
 > [!NOTE]
 > - This technique can be used to bootstrap from ADB access into full SSH access through Termux, without any access to a display or touchscreen.
@@ -101,4 +98,20 @@ adb forward tcp:8022 tcp:8022 # use only if needed
 ssh -p 8022 localhost # if not using 'adb forward', replace 'localhost' with device's LAN IP
 # default password is 'changeme'
 passwd # change the default password
+```
+
+#### Example: build Termux with the location changed and XFCE preinstalled
+
+```bash
+git clone https://github.com/robertkirkman/termux-generator.git
+cd termux-generator
+./build-termux.sh  --add valac,thunar,xfce4-panel,xfce4-session,xfce4-settings,xfconf,xfwm4,xfce4-notifyd,xfce4-terminal,xfdesktop,xfce4 \
+                   --architectures aarch64,x86_64 \
+                   --name two.termux
+```
+
+- After installing both the main app and the X11 app that appear after building, use this command to launch XFCE:
+
+```bash
+termux-x11 -xstartup xfce4-session &
 ```

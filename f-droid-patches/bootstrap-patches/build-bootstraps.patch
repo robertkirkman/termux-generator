@@ -13,7 +13,7 @@
  				maintscript_debug=1
  			fi
  
-+			find "${TERMUX_PREFIX}/bin/" \( -type f -o -type l \) -exec chmod +x {} \;
++			find "${TERMUX_PREFIX}"/{bin,lib} \( -type f -o -type l \) -exec chmod +x {} \;
 +
  			for script_path in "${TERMUX_PREFIX}/var/lib/dpkg/info/"*.postinst; do
  				script_basename="${script_path##*/}"

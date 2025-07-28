@@ -1,10 +1,11 @@
 --- a/packages/termux-tools/build.sh
 +++ b/packages/termux-tools/build.sh
-@@ -21,6 +21,14 @@ TERMUX_PKG_DEPENDS="bzip2, coreutils, curl, dash, diffutils, findutils, gawk, gr
+@@ -21,6 +21,15 @@ TERMUX_PKG_DEPENDS="bzip2, coreutils, curl, dash, diffutils, findutils, gawk, gr
  TERMUX_PKG_RECOMMENDS="ed, dos2unix, inetutils, net-tools, patch, unzip"
  
  termux_step_pre_configure() {
-+	find . -type f -print0 | xargs -0 sed -i "s/com.termux/$TERMUX_APP__PACKAGE_NAME/g"
++	. "$TERMUX_SCRIPTDIR/scripts/termux_generator_utils.sh"
++   replace_termux_name "$TERMUX_PKG_SRCDIR" "$TERMUX_APP__PACKAGE_NAME"
 +	echo "Welcome to $TERMUX_APP__PACKAGE_NAME!
 +This is a fork of \"F-Droid\" Termux!
 +Do not report issues with this build upstream!
@@ -15,6 +16,18 @@
  	autoreconf -vfi
  }
  
+--- a/packages/termux-am/build.sh
++++ b/packages/termux-am/build.sh
+@@ -13,6 +13,9 @@ TERMUX_PKG_CONFLICTS="termux-tools (<< 0.51)"
+ _GRADLE_VERSION=8.10.2
+ 
+ termux_step_post_get_source() {
++	. "$TERMUX_SCRIPTDIR/scripts/termux_generator_utils.sh"
++	replace_termux_name "$TERMUX_PKG_SRCDIR" "$TERMUX_APP__PACKAGE_NAME"
++	migrate_termux_folder_tree "$TERMUX_PKG_SRCDIR" "$TERMUX_APP__PACKAGE_NAME"
+ 	sed -i'' -E -e "s|\@TERMUX_PREFIX\@|${TERMUX_PREFIX}|g" "$TERMUX_PKG_SRCDIR/am-libexec-packaged"
+ 	sed -i'' -E -e "s|\@TERMUX_APP_PACKAGE\@|${TERMUX_APP_PACKAGE}|g" "$TERMUX_PKG_SRCDIR/app/src/main/java/com/x11/termux/test/termuxam/FakeContext.java"
+ }
 diff --git a/packages/command-not-found/name-change-helper.patch b/packages/command-not-found/name-change-helper.patch
 new file mode 100644
 index 0000000..0250f2e
