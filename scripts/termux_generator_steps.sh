@@ -204,6 +204,7 @@ build_bootstraps() {
         scripts/setup-android-sdk.sh
         scripts/free-space.sh
         rm -f "${HOME}"/lib/ndk-*.zip "${HOME}"/lib/sdk-*.zip
+        sed -i "s|/home/builder/termux-packages|$(pwd)|g" "scripts/$bootstrap_script"
         "scripts/$bootstrap_script" $bootstrap_script_args
     fi
 
