@@ -148,10 +148,10 @@ if [ -z "${DO_NOT_CLEAN}" ]; then
     patch_apps
     if [[ "$TERMUX_APP_TYPE" == "f-droid" ]]; then
         build_termux_x11
-        copy_termux_x11_deb
+        move_termux_x11_deb
     fi
     build_bootstraps
-    copy_bootstraps
+    move_bootstraps
 fi
 
 build_apps

@@ -152,11 +152,11 @@ build_termux_x11() {
 }
 
 
-copy_termux_x11_deb() {
+move_termux_x11_deb() {
     pushd termux-apps-main/termux-x11
 
     mkdir -p "$TERMUX_GENERATOR_HOME/termux-packages-main/output"
-    cp app/build/outputs/apk/debug/*.deb "$TERMUX_GENERATOR_HOME/termux-packages-main/output/termux-x11-nightly_all.deb"
+    mv app/build/outputs/apk/debug/*.deb "$TERMUX_GENERATOR_HOME/termux-packages-main/output/termux-x11-nightly_all.deb"
 
     popd
 }
@@ -197,20 +197,28 @@ build_bootstraps() {
 
     bootstrap_script_args+=" --architectures $bootstrap_architectures"
 
-    scripts/run-docker.sh "scripts/$bootstrap_script" $bootstrap_script_args
+    if [[ "${CI-}" != "true" ]]; then
+        scripts/run-docker.sh "scripts/$bootstrap_script" $bootstrap_script_args
+    else
+        scripts/setup-ubuntu.sh
+        scripts/setup-android-sdk.sh
+        scripts/free-space.sh
+        rm -f "${HOME}"/lib/ndk-*.zip "${HOME}"/lib/sdk-*.zip
+        "scripts/$bootstrap_script" $bootstrap_script_args
+    fi
 
     popd
 }
 
 # Funktion, um Bootstraps zu kopieren
-copy_bootstraps() {
+move_bootstraps() {
     if [[ "$TERMUX_APP_TYPE" == "f-droid" ]]; then
         local app_assets_dir="app/src/main/assets/"
     else
         local app_assets_dir="src/main/assets/"
     fi
     mkdir -p "termux-apps-main/termux-app/$app_assets_dir"
-    cp termux-packages-main/bootstrap-*.zip "termux-apps-main/termux-app/$app_assets_dir"
+    mv termux-packages-main/bootstrap-*.zip "termux-apps-main/termux-app/$app_assets_dir"
 }
 
 # Funktion, um die App zu bauen
