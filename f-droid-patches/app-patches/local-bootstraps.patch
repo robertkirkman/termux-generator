@@ -131,8 +131,8 @@
 -        variant.javaCompileProvider.get().dependsOn(downloadBootstraps)
 -    }
 -}
---- a/termux-app/app/src/main/java/com/termux/app/TermuxInstaller.java
-+++ b/termux-app/app/src/main/java/com/termux/app/TermuxInstaller.java
+--- a/app/src/main/java/com/termux/app/TermuxInstaller.java
++++ b/app/src/main/java/com/termux/app/TermuxInstaller.java
 @@ -4,6 +4,7 @@ import android.app.Activity;
  import android.app.AlertDialog;
  import android.app.ProgressDialog;
@@ -141,7 +141,7 @@
  import android.os.Build;
  import android.os.Environment;
  import android.system.Os;
-@@ -27,7 +28,9 @@ import java.io.BufferedReader;
+@@ -27,8 +28,11 @@ import java.io.BufferedReader;
  import java.io.ByteArrayInputStream;
  import java.io.File;
  import java.io.FileOutputStream;
@@ -149,19 +149,16 @@
  import java.io.InputStreamReader;
 +import java.io.OutputStream;
  import java.util.ArrayList;
++import java.util.Arrays;
  import java.util.List;
  import java.util.zip.ZipEntry;
-@@ -155,9 +158,16 @@ final class TermuxInstaller {
+ import java.util.zip.ZipInputStream;
+@@ -155,9 +159,11 @@ final class TermuxInstaller {
  
                      final byte[] buffer = new byte[8096];
                      final List<Pair<String, String>> symlinks = new ArrayList<>(50);
 +                    AssetManager assetManager = activity.getApplicationContext().getAssets();
-+                    String architecture = System.getProperty("os.arch");
-+                    if (architecture.contains("arm")) {
-+                        // 32-bit ARM
-+                        architecture = "arm";
-+                    }
-+                    String bootstrapFilename = "bootstrap-" + architecture + ".zip";
++                    String bootstrapFilename = "bootstrap-" + determineTermuxArchName() + ".zip";
 +                    InputStream inputStream = assetManager.open(bootstrapFilename);
  
 -                    final byte[] zipBytes = loadZipBytes();
@@ -170,7 +167,7 @@
                          ZipEntry zipEntry;
                          while ((zipEntry = zipInput.getNextEntry()) != null) {
                              if (zipEntry.getName().equals("SYMLINKS.txt")) {
-@@ -375,12 +385,4 @@ final class TermuxInstaller {
+@@ -375,12 +381,25 @@ final class TermuxInstaller {
          return FileUtils.createDirectoryFile(directory.getAbsolutePath());
      }
  
@@ -178,7 +175,27 @@
 -        // Only load the shared library when necessary to save memory usage.
 -        System.loadLibrary("termux-bootstrap");
 -        return getZip();
--    }
++    // Made by Nix-on-droid
++    // https://github.com/nix-community/nix-on-droid-app/blob/e87b6091bffa7b6eafb1b59cc7824f5692441cd0/app/src/main/java/com/termux/app/TermuxInstaller.java#L432
++    private static String determineTermuxArchName() {
++        // Note that we cannot use System.getProperty("os.arch") since that may give e.g. "aarch64"
++        // while a 64-bit runtime may not be installed (like on the Samsung Galaxy S5 Neo).
++        // Instead we search through the supported abi:s on the device, see:
++        // http://developer.android.com/ndk/guides/abis.html
++        // Note that we search for abi:s in preferred order (the ordering of the
++        // Build.SUPPORTED_ABIS list) to avoid e.g. installing arm on an x86 system where arm
++        // emulation is available.
++        for (String androidArch : Build.SUPPORTED_ABIS) {
++            switch (androidArch) {
++                case "arm64-v8a": return "aarch64";
++                case "armeabi-v7a": return "arm";
++                case "x86_64": return "x86_64";
++                case "x86": return "i686";
++            }
++        }
++        throw new RuntimeException("Unable to determine arch from Build.SUPPORTED_ABIS =  " +
++            Arrays.toString(Build.SUPPORTED_ABIS));
+     }
 -
 -    public static native byte[] getZip();
 -
