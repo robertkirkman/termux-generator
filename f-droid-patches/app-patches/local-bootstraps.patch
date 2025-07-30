@@ -131,8 +131,8 @@
 -        variant.javaCompileProvider.get().dependsOn(downloadBootstraps)
 -    }
 -}
---- a/app/src/main/java/com/termux/app/TermuxInstaller.java
-+++ b/app/src/main/java/com/termux/app/TermuxInstaller.java
+--- a/termux-app/app/src/main/java/com/termux/app/TermuxInstaller.java
++++ b/termux-app/app/src/main/java/com/termux/app/TermuxInstaller.java
 @@ -4,6 +4,7 @@ import android.app.Activity;
  import android.app.AlertDialog;
  import android.app.ProgressDialog;
