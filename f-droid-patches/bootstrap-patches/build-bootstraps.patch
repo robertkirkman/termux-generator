@@ -1,23 +1,5 @@
---- a/scripts/bootstrap/termux-bootstrap-second-stage.sh
-+++ b/scripts/bootstrap/termux-bootstrap-second-stage.sh
-@@ -106,7 +106,7 @@ run_bootstrap_second_stage() {
- 	return_value=$?
- 	if [ $return_value -ne 0 ]; then
- 		if [ $return_value -eq 1 ] && [[ "$output" == *"File exists"* ]]; then
--			log "The termux bootstrap second stage has already been run before and cannot be run again."
-+			log "The termux bootstrap second stage has already been run before or has been disabled and cannot be run again."
- 			log "If you still want to force run it again (not recommended), \
- like in case of previous failure and it must be re-run again for testing, \
- then delete the '@TERMUX_BOOTSTRAP__BOOTSTRAP_SECOND_STAGE_DIR@/@TERMUX_BOOTSTRAP__BOOTSTRAP_SECOND_STAGE_ENTRY_POINT_SUBFILE@.lock' \
-@@ -198,6 +198,8 @@ run_package_postinst_maintainer_scripts() {
- 				maintscript_debug=1
- 			fi
- 
-+			find "${TERMUX_PREFIX}"/{bin,lib} \( -type f -o -type l \) -exec chmod +x {} \;
-+
- 			for script_path in "${TERMUX_PREFIX}/var/lib/dpkg/info/"*.postinst; do
- 				script_basename="${script_path##*/}"
- 				package_name="${script_basename::-9}"
+diff --git a/scripts/build-bootstraps.sh b/scripts/build-bootstraps.sh
+index 53bb59d..e7cca43 100755
 --- a/scripts/build-bootstraps.sh
 +++ b/scripts/build-bootstraps.sh
 @@ -29,6 +29,8 @@ BOOTSTRAP_ANDROID10_COMPATIBLE=false
@@ -29,19 +11,222 @@
  TERMUX_PACKAGES_DIRECTORY="/home/builder/termux-packages"
  TERMUX_BUILT_DEBS_DIRECTORY="$TERMUX_PACKAGES_DIRECTORY/output"
  TERMUX_BUILT_PACKAGES_DIRECTORY="/data/data/.built-packages"
-@@ -138,6 +140,11 @@ extract_debs() {
- 			continue
- 		fi
+@@ -58,6 +60,101 @@ for cmd in ar awk curl grep gzip find sed tar xargs xz zip; do
+ 	fi
+ done
  
-+		if [[ "$current_package_name" == *"cross"* ]]; then
-+			echo "[*] Skipping cross package '$current_package_name'..."
-+			continue
++# Locate specified package and its dependencies and extract *.deb or *.pkg.tar.xz files to
++# the bootstrap root.
++pull_package() {
++	local package_name=$1
++
++	if grep -q "Package: $package_name" "${BOOTSTRAP_ROOTFS}/${TERMUX_PREFIX}/var/lib/dpkg/status"; then
++		echo "[*] Skipping already extracted package '$package_name'..."
++		return
++	fi
++
++	local deb
++	for file in "${TERMUX_BUILT_DEBS_DIRECTORY}/$package_name"_*.deb; do
++		current_package_arch="$(echo "$file" | sed -E 's/.*_(aarch64|all|arm|i686|x86_64).deb$/\1/' )"
++		echo "current_package_arch: '$current_package_arch'"
++		if [[ "$current_package_arch" == "$TERMUX_ARCH" ]] || [[ "$current_package_arch" == "all" ]]; then
++			deb="$file"
++			break
++		fi
++	done
++ 
++	if [ ! -e "$deb" ]; then
++		echo "[!] Error: package file for '$package_name' was not found!"
++		exit 1
++	fi
++
++	echo "[*] Extracting '$package_name'..."
++	(cd "${TERMUX_BUILT_DEBS_DIRECTORY}"
++		find . ! -name '*.deb' -delete
++		ar x "$deb"
++
++		# data.tar may have extension different from .xz
++		if [ -f "./data.tar.xz" ]; then
++			data_archive="data.tar.xz"
++		elif [ -f "./data.tar.gz" ]; then
++			data_archive="data.tar.gz"
++		else
++			echo "No data.tar.* found in '$package_name'."
++			exit 1
 +		fi
 +
- 		EXTRACTED_PACKAGES+=("$current_package_name")
++		# Do same for control.tar.
++		if [ -f "./control.tar.xz" ]; then
++			control_archive="control.tar.xz"
++		elif [ -f "./control.tar.gz" ]; then
++			control_archive="control.tar.gz"
++		else
++			echo "No control.tar.* found in '$package_name'."
++			exit 1
++		fi
++
++		# Extract files.
++		tar xf "$data_archive" -C "$BOOTSTRAP_ROOTFS"
++
++		if ! ${BOOTSTRAP_ANDROID10_COMPATIBLE}; then
++			# Register extracted files.
++			tar tf "$data_archive" | sed -E -e 's@^\./@/@' -e 's@^/$@/.@' -e 's@^([^./])@/\1@' > "${BOOTSTRAP_ROOTFS}/${TERMUX_PREFIX}/var/lib/dpkg/info/${package_name}.list"
++
++			# Generate checksums (md5).
++			tar xf "$data_archive"
++			find data -type f -print0 | xargs -0 -r md5sum | sed 's@^\.$@@g' > "${BOOTSTRAP_ROOTFS}/${TERMUX_PREFIX}/var/lib/dpkg/info/${package_name}.md5sums"
++
++			# Extract metadata.
++			tar xf "$control_archive"
++			{
++				cat control
++				echo "Status: install ok installed"
++				echo
++			} >> "${BOOTSTRAP_ROOTFS}/${TERMUX_PREFIX}/var/lib/dpkg/status"
++
++			# Additional data: conffiles & scripts
++			for file in conffiles postinst postrm preinst prerm; do
++				if [ -f "${PWD}/${file}" ]; then
++					cp "$file" "${BOOTSTRAP_ROOTFS}/${TERMUX_PREFIX}/var/lib/dpkg/info/${package_name}.${file}"
++				fi
++			done
++		fi
++
++		local package_dependencies
++		package_dependencies=$(
++			while read -r token; do
++				echo "$token" | cut -d'|' -f1 | sed -E 's@\(.*\)@@'
++			done < <(cat control | grep -i "^Depends:" | sed -E 's@^[Dd]epends:@@' | tr ',' '\n')
++		)
++	
++		# Recursively handle dependencies.
++		if [ -n "$package_dependencies" ]; then
++			local dep
++			for dep in $package_dependencies; do
++				pull_package "$dep"
++			done
++			unset dep
++		fi
++	)
++}
++
+ # Build deb files for package and its dependencies deb from source for arch
+ build_package() {
  
- 		package_tmpdir="${BOOTSTRAP_PKGDIR}/${current_package_name}"
-@@ -218,6 +225,11 @@ add_termux_bootstrap_second_stage_files() {
+@@ -93,112 +192,6 @@ build_package() {
+ 
+ }
+ 
+-# Extract *.deb files to the bootstrap root.
+-extract_debs() {
+-
+-	local package_arch="$1"
+-	local current_package_name
+-	local data_archive
+-	local control_archive
+-	local package_tmpdir
+-	local deb
+-	local file
+-
+-	cd "$TERMUX_BUILT_DEBS_DIRECTORY"
+-
+-	if [ -z "$(ls -A)" ]; then
+-		echo $'\n\n\n'"No debs found"
+-		return 1
+-	else
+-		echo $'\n\n\n'"Deb Files:"
+-		echo "\""
+-		ls
+-		echo "\""
+-	fi
+-
+-	for deb in *.deb; do
+-
+-		current_package_name="$(echo "$deb" | sed -E 's/^([^_]+).*/\1/' )"
+-		current_package_arch="$(echo "$deb" | sed -E 's/.*_(aarch64|all|arm|i686|x86_64).deb$/\1/' )"
+-		echo "current_package_name: '$current_package_name'"
+-		echo "current_package_arch: '$current_package_arch'"
+-
+-		if [[ "$current_package_arch" != "$package_arch" ]] && [[ "$current_package_arch" != "all" ]]; then
+-			echo "[*] Skipping incompatible package '$deb' for target '$package_arch'..."
+-			continue
+-		fi
+-
+-		if [[ "$current_package_name" == *"-static" ]]; then
+-			echo "[*] Skipping static package '$deb'..."
+-			continue
+-		fi
+-
+-		if [[ " ${EXTRACTED_PACKAGES[*]} " == *" $current_package_name "* ]]; then
+-			echo "[*] Skipping already extracted package '$current_package_name'..."
+-			continue
+-		fi
+-
+-		EXTRACTED_PACKAGES+=("$current_package_name")
+-
+-		package_tmpdir="${BOOTSTRAP_PKGDIR}/${current_package_name}"
+-		mkdir -p "$package_tmpdir"
+-		rm -rf "$package_tmpdir"/*
+-
+-		echo "[*] Extracting '$deb'..."
+-		(cd "$package_tmpdir"
+-			ar x "$TERMUX_BUILT_DEBS_DIRECTORY/$deb"
+-
+-			# data.tar may have extension different from .xz
+-			if [ -f "./data.tar.xz" ]; then
+-				data_archive="data.tar.xz"
+-			elif [ -f "./data.tar.gz" ]; then
+-				data_archive="data.tar.gz"
+-			else
+-				echo "No data.tar.* found in '$deb'."
+-				return 1
+-			fi
+-
+-			# Do same for control.tar.
+-			if [ -f "./control.tar.xz" ]; then
+-				control_archive="control.tar.xz"
+-			elif [ -f "./control.tar.gz" ]; then
+-				control_archive="control.tar.gz"
+-			else
+-				echo "No control.tar.* found in '$deb'."
+-				return 1
+-			fi
+-
+-			# Extract files.
+-			tar xf "$data_archive" -C "$BOOTSTRAP_ROOTFS"
+-
+-			if ! ${BOOTSTRAP_ANDROID10_COMPATIBLE}; then
+-				# Register extracted files.
+-				tar tf "$data_archive" | sed -E -e 's@^\./@/@' -e 's@^/$@/.@' -e 's@^([^./])@/\1@' > "${BOOTSTRAP_ROOTFS}/${TERMUX_PREFIX}/var/lib/dpkg/info/${current_package_name}.list"
+-
+-				# Generate checksums (md5).
+-				tar xf "$data_archive"
+-				find data -type f -print0 | xargs -0 -r md5sum | sed 's@^\.$@@g' > "${BOOTSTRAP_ROOTFS}/${TERMUX_PREFIX}/var/lib/dpkg/info/${current_package_name}.md5sums"
+-
+-				# Extract metadata.
+-				tar xf "$control_archive"
+-				{
+-					cat control
+-					echo "Status: install ok installed"
+-					echo
+-				} >> "${BOOTSTRAP_ROOTFS}/${TERMUX_PREFIX}/var/lib/dpkg/status"
+-
+-				# Additional data: conffiles & scripts
+-				for file in conffiles postinst postrm preinst prerm; do
+-					if [ -f "${PWD}/${file}" ]; then
+-						cp "$file" "${BOOTSTRAP_ROOTFS}/${TERMUX_PREFIX}/var/lib/dpkg/info/${current_package_name}.${file}"
+-					fi
+-				done
+-			fi
+-		)
+-	done
+-
+-}
+-
+ # Add termux bootstrap second stage files
+ add_termux_bootstrap_second_stage_files() {
+ 
+@@ -218,6 +211,11 @@ add_termux_bootstrap_second_stage_files() {
  		> "${BOOTSTRAP_ROOTFS}/${TERMUX_BOOTSTRAP__BOOTSTRAP_SECOND_STAGE_DIR}/$TERMUX_BOOTSTRAP__BOOTSTRAP_SECOND_STAGE_ENTRY_POINT_SUBFILE"
  	chmod 700 "${BOOTSTRAP_ROOTFS}/${TERMUX_BOOTSTRAP__BOOTSTRAP_SECOND_STAGE_DIR}/$TERMUX_BOOTSTRAP__BOOTSTRAP_SECOND_STAGE_ENTRY_POINT_SUBFILE"
  
@@ -53,7 +238,7 @@
  	# TODO: Remove it when Termux app supports `pacman` bootstraps installation.
  	sed -e "s|@TERMUX_PREFIX@|${TERMUX_PREFIX}|g" \
  		-e "s|@TERMUX__PREFIX__PROFILE_D_DIR@|${TERMUX__PREFIX__PROFILE_D_DIR}|g" \
-@@ -243,7 +250,13 @@ create_bootstrap_archive() {
+@@ -243,7 +241,13 @@ create_bootstrap_archive() {
  			rm -f "$link"
  		done < <(find . -type l -print0)
  
@@ -68,7 +253,7 @@
  	)
  
  	mv -f "${BOOTSTRAP_TMPDIR}/bootstrap-${1}.zip" "$TERMUX_PACKAGES_DIRECTORY/"
-@@ -370,6 +388,9 @@ main() {
+@@ -370,6 +374,9 @@ main() {
  					return 1
  				fi
  				;;
@@ -78,7 +263,7 @@
  			-f)
  				BUILD_PACKAGE_OPTIONS+=("-f")
  				FORCE_BUILD_PACKAGES=1
-@@ -429,7 +442,10 @@ main() {
+@@ -429,7 +436,10 @@ main() {
  
  		# Core utilities.
  		PACKAGES+=("bash") # Used by `termux-bootstrap-second-stage.sh`
@@ -90,8 +275,15 @@
  		if ! ${BOOTSTRAP_ANDROID10_COMPATIBLE}; then
  			PACKAGES+=("command-not-found")
  		else
-@@ -483,7 +499,7 @@ main() {
- 		extract_debs "$TERMUX_ARCH" || return $?
+@@ -480,10 +490,13 @@ main() {
+ 		done
+ 
+ 		# Extract all debs.
+-		extract_debs "$TERMUX_ARCH" || return $?
++		for pull_pkg in "${PACKAGES[@]}"; do
++			pull_package "$pull_pkg"
++		done
++		unset pull_pkg
  
  		# Add termux bootstrap second stage files
 -		add_termux_bootstrap_second_stage_files "$package_arch"

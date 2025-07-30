@@ -21,6 +21,9 @@ apply_patches() {
 }
 
 replace_termux_name() {
+    if [[ "$TERMUX_APP__PACKAGE_NAME" == "com.termux" ]]; then
+        return
+    fi
     local targetdir="$1"
     local replacement_name="$2"
     local replacement_name_underscore="$(echo "$replacement_name" | tr . _)"
@@ -44,6 +47,9 @@ replace_termux_name() {
 
 # Funktion, um Ordner zu migrieren
 migrate_termux_folder() {
+    if [[ "$TERMUX_APP__PACKAGE_NAME" == "com.termux" ]]; then
+        return
+    fi
     local parentdir="$(dirname "$(dirname "$1")")"
     local replacement_name="$2"
     local destination="${parentdir}/$(echo "$replacement_name" | tr . /)/"
@@ -58,6 +64,9 @@ migrate_termux_folder() {
 }
 
 migrate_termux_folder_tree() {
+    if [[ "$TERMUX_APP__PACKAGE_NAME" == "com.termux" ]]; then
+        return
+    fi
     local targetdir="$1"
     local replacement_name="$2"
 
