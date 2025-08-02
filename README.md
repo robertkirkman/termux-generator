@@ -4,15 +4,15 @@ This script builds a [termux/termux-app](https://github.com/termux/termux-app) o
 
 ## Building Termux in GitHub Actions
 
-1. Fork the repository
+1. Fork the repository:
 
 <img width="189" height="43" alt="image" src="https://github.com/user-attachments/assets/7aa63b58-b8d5-4b30-957b-fd041bee003d" />
 
-3. Click the "Actions" tab and enable GitHub Actions
+2. Click the "Actions" tab and enable GitHub Actions:
 
 <img width="953" height="407" alt="image" src="https://github.com/user-attachments/assets/76561301-61bd-4f58-8511-38d4486e26ac" />
 
-4. Click the "Generate Termux application" workflow, then click the "Run workflow" button and type your desired settings:
+3. Click the "Generate Termux application" workflow, then click the "Run workflow" button and type your desired settings:
 
 <img width="450" height="810" alt="image" src="https://github.com/user-attachments/assets/7b914a69-7654-4150-8e68-4086a10ba3fd" />
 
