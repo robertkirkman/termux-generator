@@ -1,0 +1,15 @@
+diff --git a/packages/libgts/build.sh b/packages/libgts/build.sh
+index 532f0d5..f263c56 100644
+--- a/packages/libgts/build.sh
++++ b/packages/libgts/build.sh
+@@ -15,3 +15,10 @@ termux_step_host_build() {
+ 	$TERMUX_PKG_SRCDIR/configure
+ 	make -C src predicates_init
+ }
++
++# prevents error
++# /bin/bash: line 1: ./predicates_init: cannot execute binary file: Exec format error
++# during repeated builds
++termux_step_pre_configure() {
++	rm -rf $TERMUX_HOSTBUILD_MARKER
++}
