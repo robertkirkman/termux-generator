@@ -168,16 +168,10 @@ build_bootstraps() {
     local bootstrap_script_args=""
 
     if [ -n "$ENABLE_SSH_SERVER" ]; then
-        if [ -n "$ADDITIONAL_PACKAGES" ]; then
-            ADDITIONAL_PACKAGES+=",openssh"
-        else
-            ADDITIONAL_PACKAGES="openssh"
-        fi
+        ADDITIONAL_PACKAGES+=",openssh"
     fi
 
-    if [ -n "${ADDITIONAL_PACKAGES}" ]; then
-        bootstrap_script_args+=" --add ${ADDITIONAL_PACKAGES}"
-    fi
+    bootstrap_script_args+=" --add ${ADDITIONAL_PACKAGES}"
 
     if [[ "$TERMUX_APP_TYPE" == "f-droid" ]]; then
         local bootstrap_script="build-bootstraps.sh"

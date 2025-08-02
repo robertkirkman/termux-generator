@@ -38,7 +38,7 @@
 +pull_package() {
 +	local package_name=$1
 +
-+	if grep -q "Package: $package_name" "${BOOTSTRAP_ROOTFS}/${TERMUX_PREFIX}/var/lib/dpkg/status"; then
++	if grep -q "Package: $package_name$" "${BOOTSTRAP_ROOTFS}/${TERMUX_PREFIX}/var/lib/dpkg/status"; then
 +		echo "[*] Skipping already extracted package '$package_name'..."
 +		return
 +	fi
@@ -298,7 +298,7 @@
  
  		# Extract all debs.
 -		extract_debs "$TERMUX_ARCH" || return $?
-+		for pull_pkg in "${PACKAGES[@]}"; do
++		for pull_pkg in "${PACKAGES[@]}" termux-x11-nightly; do
 +			pull_package "$pull_pkg"
 +		done
 +		unset pull_pkg

@@ -9,7 +9,7 @@ TERMUX_APP__PACKAGE_NAME="com.termux"
 TERMUX_APP_TYPE="f-droid"
 DO_NOT_CLEAN=""
 TERMUX_GENERATOR_PLUGIN=""
-ADDITIONAL_PACKAGES=""
+ADDITIONAL_PACKAGES="xkeyboard-config" # for termux-x11-nightly which is always preinstalled
 BOOTSTRAP_ARCHITECTURES=""
 DISABLE_BOOTSTRAP_SECOND_STAGE=""
 ENABLE_SSH_SERVER=""
@@ -63,7 +63,7 @@ while (($# > 0)); do
             ;;
         -a|--add)
             if [ $# -gt 1 ] && [ -n "$2" ] && [[ $2 != -* ]]; then
-                ADDITIONAL_PACKAGES="$2"
+                ADDITIONAL_PACKAGES+=",$2"
                 shift 1
             else
                 echo "[!] Option '--add' requires an argument."
