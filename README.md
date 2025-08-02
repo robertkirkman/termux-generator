@@ -2,6 +2,25 @@
 
 This script builds a [termux/termux-app](https://github.com/termux/termux-app) or [termux-play-store/termux-apps/termux-app](https://github.com/termux-play-store/termux-apps/tree/main/termux-app) from source, but allows changing the package name from `com.termux` to anything else with a single command.
 
+## Building Termux in GitHub Actions
+
+1. Fork the repository
+
+<img width="189" height="43" alt="image" src="https://github.com/user-attachments/assets/7aa63b58-b8d5-4b30-957b-fd041bee003d" />
+
+3. Click the "Actions" tab and enable GitHub Actions
+
+<img width="953" height="407" alt="image" src="https://github.com/user-attachments/assets/76561301-61bd-4f58-8511-38d4486e26ac" />
+
+4. Click the "Generate Termux application" workflow, then click the "Run workflow" button and type your desired settings:
+
+<img width="450" height="810" alt="image" src="https://github.com/user-attachments/assets/7b914a69-7654-4150-8e68-4086a10ba3fd" />
+
+4. Click the "Run workflow" button, then wait for your build to complete. If the build is successful, there will be an artifact available to download containing all possible Termux APKs for the combination of settings you selected:
+
+<img width="1148" height="250" alt="image" src="https://github.com/user-attachments/assets/7bbc8338-1c9e-4a34-966f-87a65cadc471" />
+
+
 ## Building Termux locally
 
 ### Dependencies
