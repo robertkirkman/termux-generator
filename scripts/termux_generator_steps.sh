@@ -194,6 +194,7 @@ build_bootstraps() {
     if [[ "${CI-}" != "true" ]]; then
         scripts/run-docker.sh "scripts/$bootstrap_script" $bootstrap_script_args
     else
+        unset NDK ANDROID_HOME
         scripts/setup-ubuntu.sh
         scripts/setup-android-sdk.sh
         scripts/free-space.sh

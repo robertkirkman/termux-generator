@@ -86,8 +86,8 @@ sudo reboot
 git clone https://github.com/robertkirkman/termux-generator.git
 cd termux-generator
 ./build-termux.sh --name a.copy.of.termux.with.the.location.changed \
-                  --add make,pkg-config,autoconf,automake,bc,bison,cmake,flex,gperf,libtool,libllvm,m4,git,golang,nodejs,patchelf,python,ruby,rust,subversion,python,proot-distro,ffmpeg \
-                  --architectures aarch64
+    --add clang,make,pkg-config,autoconf,automake,bc,bison,cmake,flex,libtool,m4,git,python-pip,proot-distro \
+    --architectures aarch64
 ```
 
 > [!IMPORTANT]

@@ -1,0 +1,16 @@
+--- a/build-package.sh
++++ b/build-package.sh
+@@ -698,6 +698,13 @@ for ((i=0; i<${#PACKAGE_LIST[@]}; i++)); do
+ 				elif [ -n "${TERMUX_IS_DISABLED=""}" ] && [ -d "${TERMUX_SCRIPTDIR}/disabled-packages/${TERMUX_PKG_NAME}" ]; then
+ 					export TERMUX_PKG_BUILDER_DIR=$TERMUX_SCRIPTDIR/disabled-packages/$TERMUX_PKG_NAME
+ 					break
++				else
++					subpackage_file="$(find "$package_directory" -mindepth 2 -maxdepth 2 -type f -name "$TERMUX_PKG_NAME.subpackage.sh")"
++					if [ -n "$subpackage_file" ]; then
++						export TERMUX_PKG_BUILDER_DIR="$(realpath "$(dirname "$subpackage_file")")"
++						export TERMUX_PKG_NAME="$(basename "$TERMUX_PKG_BUILDER_DIR")"
++						break
++					fi
+ 				fi
+ 			done
+ 			if [ -z "${TERMUX_PKG_BUILDER_DIR}" ]; then
