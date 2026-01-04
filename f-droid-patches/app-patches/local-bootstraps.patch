@@ -23,7 +23,7 @@
      }
  
      signingConfigs {
-@@ -104,12 +88,6 @@ android {
+@@ -106,12 +90,6 @@ android {
          targetCompatibility JavaVersion.VERSION_1_8
      }
  
@@ -33,7 +33,7 @@
 -        }
 -    }
 -
-     lintOptions {
+     lint {
          disable 'ProtectedPermissions'
      }
 @@ -120,12 +98,6 @@ android {
