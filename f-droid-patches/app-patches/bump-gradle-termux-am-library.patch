@@ -1,0 +1,38 @@
+--- a/termux-app/termux-am-library/build.gradle
++++ b/termux-app/termux-am-library/build.gradle
+@@ -4,6 +4,7 @@ plugins {
+ }
+ 
+ android {
++    namespace = "com.termux.am"
+     compileSdk project.properties.compileSdkVersion.toInteger()
+ 
+     defaultConfig {
+@@ -36,7 +37,7 @@ dependencies {
+ 
+ task sourceJar(type: Jar) {
+     from android.sourceSets.main.java.srcDirs
+-    classifier "sources"
++    archiveClassifier = "sources"
+ }
+ 
+ afterEvaluate {
+@@ -44,7 +45,7 @@ afterEvaluate {
+         publications {
+             // Creates a Maven publication called "release".
+             release(MavenPublication) {
+-                from components.release
++                from components.findByName('release')
+                 groupId = 'com.termux'
+                 artifactId = 'termux-am'
+                 version = '2.0.0'
+--- a/termux-app/termux-am-library/src/main/AndroidManifest.xml
++++ b/termux-app/termux-am-library/src/main/AndroidManifest.xml
+@@ -1,5 +1,4 @@
+ <?xml version="1.0" encoding="utf-8"?>
+-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+-    package="com.termux.am">
++<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+ 
+ </manifest>
+\ No newline at end of file
