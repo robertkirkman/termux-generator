@@ -1,6 +1,27 @@
 --- a/scripts/generate-bootstraps.sh
 +++ b/scripts/generate-bootstraps.sh
-@@ -287,7 +287,13 @@ create_bootstrap_archive() {
+@@ -118,7 +120,7 @@ pull_package() {
+ 				local package_to_build="$package_name"
+ 			fi
+ 
+-			if [[ -v "PACKAGE_METADATA[$package_to_build]" ]]; then
++			if [[ -v "PACKAGE_METADATA[$package_to_build]" ]] || [[ "$package_to_build" == "termux-x11-nightly" ]]; then
+ 				echo "INFO: Package $package_to_build is already built"
+ 			else
+ 				./build-package.sh -a "$package_arch" "$package_to_build"
+@@ -127,7 +129,10 @@ pull_package() {
+ 			# Scan through built .deb files:
+ 			local f
+ 			for f in output/*.deb; do
+-				local control=$(ar p $f control.tar.xz | tar xJOf - ./control)
++				local control
++				if ! control=$(ar p $f control.tar.xz | tar xJOf - ./control); then
++					control=$(ar p $f control.tar.gz | tar xzOf - ./control)
++				fi
+ 				local deb_package_name=$(echo $control | grep 'Package: ' | cut -d ' ' -f 2)
+ 				PACKAGE_METADATA["$deb_package_name"]="$control"
+ 				if [ "$package_name" = "$deb_package_name" ]; then
+@@ -284,7 +286,13 @@ create_bootstrap_archive() {
  			rm -f "$link"
  		done < <(find . -type l -print0)
  
@@ -15,3 +36,21 @@
  	)
  
  	mv -f "${BOOTSTRAP_TMPDIR}/bootstrap-${1}.zip" ./
+@@ -411,6 +419,8 @@ for package_arch in "${TERMUX_ARCHITECTURES[@]}"; do
+ 	if [ "$TERMUX_BUILD_BOOTSTRAPS" = true ]; then
+ 		rm -Rf output/
+ 	fi
++	mkdir -p output/
++	cp termux-x11-nightly_all.deb output/
+ 
+ 	PATH_DB_PACKAGES="$BOOTSTRAP_TMPDIR/main_${package_arch}.json"
+ 	BOOTSTRAP_ROOTFS="$BOOTSTRAP_TMPDIR/rootfs-${package_arch}"
+@@ -499,7 +502,7 @@ EOF
+ 	pull_package unzip
+ 
+ 	# Handle additional packages.
+-	for add_pkg in "${ADDITIONAL_PACKAGES[@]}"; do
++	for add_pkg in "${ADDITIONAL_PACKAGES[@]}" termux-x11-nightly; do
+ 		pull_package "$add_pkg"
+ 	done
+ 	unset add_pkg

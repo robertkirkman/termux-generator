@@ -1,0 +1,13 @@
+--- a/packages/apt/build.sh
++++ b/packages/apt/build.sh
+@@ -3,8 +3,8 @@ TERMUX_PKG_DESCRIPTION="Front-end for the dpkg package manager"
+ TERMUX_PKG_LICENSE="GPL-2.0"
+ TERMUX_PKG_MAINTAINER="@termux"
+ TERMUX_PKG_VERSION="3.1.12"
+-TERMUX_PKG_SRCURL=https://deb.debian.org/debian/pool/main/a/apt/apt_${TERMUX_PKG_VERSION}.tar.xz
+-TERMUX_PKG_SHA256=8c6012b7b95fedf0acc99830aba5173f80f6651f12e4dcc0fc8b2f16779b2d17
++TERMUX_PKG_SRCURL="https://salsa.debian.org/apt-team/apt/-/archive/$TERMUX_PKG_VERSION/apt-$TERMUX_PKG_VERSION.tar.gz"
++TERMUX_PKG_SHA256=8040f5aa4d92584f979d94ef44307f9c26aeb89fab88a46dee482e1a4eb76f51
+ # apt-key requires utilities from coreutils, findutils, gpgv, grep, sed.
+ TERMUX_PKG_DEPENDS="coreutils, dpkg, findutils, gpgv, grep, libc++, libgnutls, liblzma, sed, termux-keyring, termux-licenses, xxhash"
+ TERMUX_PKG_BUILD_DEPENDS="docbook-xsl"

@@ -121,6 +121,16 @@ passwd # change the default password
 
 #### Example: build Termux with the location changed and XFCE preinstalled
 
+> [!TIP]
+> `--type play-store` is compatible with Termux:X11, but unlike `--type f-droid`, it doesn't currently have a second-stage bootstrap, so if using `--type play-store` with XFCE, it might be necessary to run some commands to grant executable permission manually before launching XFCE, like these:
+> 
+> ```
+> chmox +x $PREFIX/lib/xfce4/xfconf/xfconfd
+> chmod +x $PREFIX/lib/xfce4/session/xfsm-shutdown-helper
+> chmod +x $PREFIX/lib/xfce4/panel/migrate
+> chmod +x $PREFIX/lib/xfce4/notifyd/xfce4-notifyd
+> ```
+
 ```bash
 git clone https://github.com/robertkirkman/termux-generator.git
 cd termux-generator

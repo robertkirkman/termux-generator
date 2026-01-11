@@ -69,7 +69,6 @@ download() {
         git clone --depth 1 https://github.com/termux/termux-styling.git                termux-apps-main/termux-styling
         git clone --depth 1 https://github.com/termux/termux-app.git                    termux-apps-main/termux-app
         git clone --depth 1 https://github.com/termux/termux-gui.git                    termux-apps-main/termux-gui
-        git clone --depth 1 --recursive https://github.com/termux/termux-x11.git        termux-apps-main/termux-x11
         # special case - for "F-Droid" Termux, it is necessary to move the termux-am-library subfolder of
         # the termux-am-library repository, which contains its actual code, into the termux-app folder,
         # where its code needs to be patched and compiled into the main "F-Droid" Termux APK
@@ -80,6 +79,7 @@ download() {
         git clone --depth 1 https://github.com/termux-play-store/termux-packages.git    termux-packages-main
         git clone --depth 1 https://github.com/termux-play-store/termux-apps.git        termux-apps-main
     fi
+    git clone --depth 1 --recursive https://github.com/termux/termux-x11.git        termux-apps-main/termux-x11
 }
 
 build_plugin() {
@@ -155,8 +155,14 @@ build_termux_x11() {
 move_termux_x11_deb() {
     pushd termux-apps-main/termux-x11
 
-    mkdir -p "$TERMUX_GENERATOR_HOME/termux-packages-main/output"
-    mv app/build/outputs/apk/debug/*.deb "$TERMUX_GENERATOR_HOME/termux-packages-main/output/termux-x11-nightly_all.deb"
+    if [[ "$TERMUX_APP_TYPE" == "f-droid" ]]; then
+        local termux_x11_dest="$TERMUX_GENERATOR_HOME/termux-packages-main/output"
+    else
+        local termux_x11_dest="$TERMUX_GENERATOR_HOME/termux-packages-main"
+    fi
+
+    mkdir -p "$termux_x11_dest"
+    mv app/build/outputs/apk/debug/*.deb "$termux_x11_dest/termux-x11-nightly_all.deb"
 
     popd
 }
@@ -246,6 +252,10 @@ move_apks() {
     else
         local build_dir="build/outputs/apk/debug"
     fi
+
+    for apk in termux-apps-main/termux-x11/app/build/outputs/apk/debug/*.apk; do
+        mv "$apk" "$TERMUX_APP__PACKAGE_NAME-$TERMUX_APP_TYPE-$(basename $apk)"
+    done
 
     for apk in termux-apps-main/*/"$build_dir"/*.apk; do
         mv "$apk" "$TERMUX_APP__PACKAGE_NAME-$TERMUX_APP_TYPE-$(basename $apk)"
