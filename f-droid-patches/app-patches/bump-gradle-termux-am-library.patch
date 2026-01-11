@@ -1,3 +1,5 @@
+https://github.com/termux/termux-am-library/pull/2
+
 --- a/termux-app/termux-am-library/build.gradle
 +++ b/termux-app/termux-am-library/build.gradle
 @@ -4,6 +4,7 @@ plugins {
@@ -8,7 +10,22 @@
      compileSdk project.properties.compileSdkVersion.toInteger()
  
      defaultConfig {
-@@ -36,7 +37,7 @@ dependencies {
+@@ -26,6 +27,14 @@ android {
+         sourceCompatibility JavaVersion.VERSION_1_8
+         targetCompatibility JavaVersion.VERSION_1_8
+     }
++
++    publishing {
++        multipleVariants {
++            withSourcesJar()
++            withJavadocJar()
++            allVariants()
++        }
++    }
+ }
+ 
+ dependencies {
+@@ -36,7 +45,7 @@ dependencies {
  
  task sourceJar(type: Jar) {
      from android.sourceSets.main.java.srcDirs
@@ -17,12 +34,12 @@
  }
  
  afterEvaluate {
-@@ -44,7 +45,7 @@ afterEvaluate {
+@@ -44,7 +53,7 @@ afterEvaluate {
          publications {
              // Creates a Maven publication called "release".
              release(MavenPublication) {
 -                from components.release
-+                from components.findByName('release')
++                from components.default
                  groupId = 'com.termux'
                  artifactId = 'termux-am'
                  version = '2.0.0'
