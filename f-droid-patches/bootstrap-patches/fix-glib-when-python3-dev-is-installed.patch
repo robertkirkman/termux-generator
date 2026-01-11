@@ -1,0 +1,10 @@
+--- a/packages/glib/build.sh
++++ b/packages/glib/build.sh
+@@ -7,6 +7,7 @@ TERMUX_PKG_SRCURL=https://download.gnome.org/sources/glib/${TERMUX_PKG_VERSION%.
+ TERMUX_PKG_SHA256=b3211d8d34b9df5dca05787ef0ad5d7ca75dec998b970e1aab0001d229977c65
+ TERMUX_PKG_AUTO_UPDATE=true
+ TERMUX_PKG_DEPENDS="libandroid-support, libffi, libiconv, pcre2, resolv-conf, zlib, python"
++TERMUX_PKG_SETUP_PYTHON=true
+ TERMUX_PKG_BREAKS="glib-dev, glib-bin"
+ TERMUX_PKG_REPLACES="glib-dev, glib-bin"
+ TERMUX_PKG_VERSIONED_GIR=false
