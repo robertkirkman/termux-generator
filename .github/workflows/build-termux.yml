@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       add:
-        description: "Include additional packages in bootstrap archive."
+        description: "Include additional packages in bootstrap in a comma-separated list."
         required: false
       name:
         description: "Specify TERMUX_APP__PACKAGE_NAME name."
@@ -20,14 +20,65 @@ on:
       architectures:
         description: "Specify the bootstrap architectures to include in a comma-separated list."
         required: false
-      disable-bootstrap-second-stage:
-        description: "Disable the automatic execution of termux-bootstrap-second-stage.sh."
+      bootstrap-second-stage:
+        description: "Automatically execute termux-bootstrap-second-stage.sh."
         required: false
         type: boolean
-      enable-ssh-server:
+        default: true
+      ssh-server:
         description: "Bundle an SSH server with the default password 'changeme'."
         required: false
         type: boolean
+      bootstrap:
+        description: "Build the bootstrap(s)."
+        required: false
+        type: boolean
+        default: true
+      terminal:
+        description: "Build the Terminal app."
+        required: false
+        type: boolean
+        default: true
+      tasker:
+        description: "Build the Tasker addon app."
+        required: false
+        type: boolean
+        default: true
+      float:
+        description: "Build the Float addon app."
+        required: false
+        type: boolean
+        default: true
+      widget:
+        description: "Build the Widget addon app."
+        required: false
+        type: boolean
+        default: true
+      api:
+        description: "Build the API addon app."
+        required: false
+        type: boolean
+        default: true
+      boot:
+        description: "Build the Boot addon app."
+        required: false
+        type: boolean
+        default: true
+      styling:
+        description: "Build the Styling addon app."
+        required: false
+        type: boolean
+        default: true
+      gui:
+        description: "Build the GUI addon app."
+        required: false
+        type: boolean
+        default: true
+      x11:
+        description: "Build the X11 addon app."
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   build:
@@ -48,15 +99,47 @@ jobs:
         if: "${{ github.event.inputs.architectures != '' }}"
         run: echo "BOOTSTRAP_ARCHITECTURES=--architectures ${{ github.event.inputs.architectures }}" >> $GITHUB_ENV
       - name: Set --disable-bootstrap-second-stage
-        if: "${{ github.event.inputs.disable-bootstrap-second-stage == 'true' }}"
+        if: "${{ github.event.inputs.bootstrap-second-stage == 'false' }}"
         run: echo "DISABLE_BOOTSTRAP_SECOND_STAGE=--disable-bootstrap-second-stage" >> $GITHUB_ENV
       - name: Set --enable-ssh-server
-        if: "${{ github.event.inputs.enable-ssh-server == 'true' }}"
+        if: "${{ github.event.inputs.ssh-server == 'true' }}"
         run: echo "ENABLE_SSH_SERVER=--enable-ssh-server" >> $GITHUB_ENV
+      - name: Set --disable-bootstrap
+        if: "${{ github.event.inputs.bootstrap == 'false' }}"
+        run: echo "DISABLE_BOOTSTRAP=--disable-bootstrap" >> $GITHUB_ENV
+      - name: Set --disable-terminal
+        if: "${{ github.event.inputs.terminal == 'false' }}"
+        run: echo "DISABLE_TERMINAL=--disable-terminal" >> $GITHUB_ENV
+      - name: Set --disable-tasker
+        if: "${{ github.event.inputs.tasker == 'false' }}"
+        run: echo "DISABLE_TASKER=--disable-tasker" >> $GITHUB_ENV
+      - name: Set --disable-float
+        if: "${{ github.event.inputs.float == 'false' }}"
+        run: echo "DISABLE_FLOAT=--disable-float" >> $GITHUB_ENV
+      - name: Set --disable-widget
+        if: "${{ github.event.inputs.widget == 'false' }}"
+        run: echo "DISABLE_WIDGET=--disable-widget" >> $GITHUB_ENV
+      - name: Set --disable-api
+        if: "${{ github.event.inputs.api == 'false' }}"
+        run: echo "DISABLE_API=--disable-api" >> $GITHUB_ENV
+      - name: Set --disable-boot
+        if: "${{ github.event.inputs.boot == 'false' }}"
+        run: echo "DISABLE_BOOT=--disable-boot" >> $GITHUB_ENV
+      - name: Set --disable-styling
+        if: "${{ github.event.inputs.styling == 'false' }}"
+        run: echo "DISABLE_STYLING=--disable-styling" >> $GITHUB_ENV
+      - name: Set --disable-gui
+        if: "${{ github.event.inputs.gui == 'false' }}"
+        run: echo "DISABLE_GUI=--disable-gui" >> $GITHUB_ENV
+      - name: Set --disable-x11
+        if: "${{ github.event.inputs.x11 == 'false' }}"
+        run: echo "DISABLE_X11=--disable-x11" >> $GITHUB_ENV
       - name: Build Termux
-        run: ./build-termux.sh $ADDITIONAL_PACKAGES $TERMUX_APP__PACKAGE_NAME $TERMUX_APP_TYPE $BOOTSTRAP_ARCHITECTURES $DISABLE_BOOTSTRAP_SECOND_STAGE $ENABLE_SSH_SERVER
+        run: ./build-termux.sh $ADDITIONAL_PACKAGES $TERMUX_APP__PACKAGE_NAME $TERMUX_APP_TYPE $BOOTSTRAP_ARCHITECTURES $DISABLE_BOOTSTRAP_SECOND_STAGE $ENABLE_SSH_SERVER $DISABLE_BOOTSTRAP $DISABLE_TERMINAL $DISABLE_TASKER $DISABLE_FLOAT $DISABLE_WIDGET $DISABLE_API $DISABLE_BOOT $DISABLE_STYLING $DISABLE_GUI $DISABLE_X11
       - name: Upload artifacts
         uses: actions/upload-artifact@v4.6.0
         with:
-          name: Termux APKs
-          path: ./*.apk
+          name: Termux APKs or bootstraps
+          path: |
+            ./*.apk
+            ./*.zip

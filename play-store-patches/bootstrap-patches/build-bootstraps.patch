@@ -36,21 +36,25 @@
  	)
  
  	mv -f "${BOOTSTRAP_TMPDIR}/bootstrap-${1}.zip" ./
-@@ -411,6 +419,8 @@ for package_arch in "${TERMUX_ARCHITECTURES[@]}"; do
+@@ -411,6 +419,10 @@ for package_arch in "${TERMUX_ARCHITECTURES[@]}"; do
  	if [ "$TERMUX_BUILD_BOOTSTRAPS" = true ]; then
  		rm -Rf output/
  	fi
 +	mkdir -p output/
-+	cp termux-x11-nightly_all.deb output/
++	if [ -f termux-x11-nightly_all.deb ]; then
++		cp termux-x11-nightly_all.deb output/
++	fi
  
  	PATH_DB_PACKAGES="$BOOTSTRAP_TMPDIR/main_${package_arch}.json"
  	BOOTSTRAP_ROOTFS="$BOOTSTRAP_TMPDIR/rootfs-${package_arch}"
-@@ -499,7 +502,7 @@ EOF
+@@ -499,7 +502,10 @@ EOF
  	pull_package unzip
  
  	# Handle additional packages.
--	for add_pkg in "${ADDITIONAL_PACKAGES[@]}"; do
-+	for add_pkg in "${ADDITIONAL_PACKAGES[@]}" termux-x11-nightly; do
++	if [ -f output/termux-x11-nightly_all.deb ]; then
++		pull_package termux-x11-nightly
++	fi
+	for add_pkg in "${ADDITIONAL_PACKAGES[@]}"; do
  		pull_package "$add_pkg"
  	done
  	unset add_pkg

@@ -54,7 +54,7 @@ clean_docker() {
 }
 
 clean_artifacts() {
-    rm -rf termux* *.apk *.deb *.xz 2>/dev/null
+    rm -rf termux* *.apk *.deb *.xz *.zip 2>/dev/null
 }
 
 # Funktion, um Repositories herunterzuladen
@@ -218,8 +218,14 @@ move_bootstraps() {
     else
         local app_assets_dir="src/main/assets/"
     fi
-    mkdir -p "termux-apps-main/termux-app/$app_assets_dir"
-    mv termux-packages-main/bootstrap-*.zip "termux-apps-main/termux-app/$app_assets_dir"
+    if [ -z "${DISABLE_TERMINAL}" ]; then
+        mkdir -p "termux-apps-main/termux-app/$app_assets_dir"
+        mv termux-packages-main/bootstrap-*.zip "termux-apps-main/termux-app/$app_assets_dir"
+    else
+        for zip in termux-packages-main/bootstrap-*.zip; do
+            mv "$zip" "$TERMUX_APP__PACKAGE_NAME-$TERMUX_APP_TYPE-$(basename $zip)"
+        done
+    fi
 }
 
 # Funktion, um die App zu bauen
@@ -227,10 +233,36 @@ build_apps() {
     pushd termux-apps-main
 
     if [[ "$TERMUX_APP_TYPE" == "f-droid" ]]; then
-        pushd termux-app
-            ./gradlew publishReleasePublicationToMavenLocal
-        popd
+        if [ -z "${DISABLE_TERMINAL}" ]; then
+            pushd termux-app
+                ./gradlew publishReleasePublicationToMavenLocal
+            popd
+        fi
         for app in *; do
+            if [[ "$app" == "termux-app" ]] && [[ -n "${DISABLE_TERMINAL}" ]]; then
+                continue
+            fi
+            if [[ "$app" == "termux-tasker" ]] && [[ -n "${DISABLE_TASKER}" ]]; then
+                continue
+            fi
+            if [[ "$app" == "termux-float" ]] && [[ -n "${DISABLE_FLOAT}" ]]; then
+                continue
+            fi
+            if [[ "$app" == "termux-widget" ]] && [[ -n "${DISABLE_WIDGET}" ]]; then
+                continue
+            fi
+            if [[ "$app" == "termux-api" ]] && [[ -n "${DISABLE_API}" ]]; then
+                continue
+            fi
+            if [[ "$app" == "termux-boot" ]] && [[ -n "${DISABLE_BOOT}" ]]; then
+                continue
+            fi
+            if [[ "$app" == "termux-styling" ]] && [[ -n "${DISABLE_STYLING}" ]]; then
+                continue
+            fi
+            if [[ "$app" == "termux-gui" ]] && [[ -n "${DISABLE_GUI}" ]]; then
+                continue
+            fi
             if [[ "$app" == "termux-x11" ]]; then
                 continue
             fi

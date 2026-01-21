@@ -14,6 +14,16 @@ BOOTSTRAP_ARCHITECTURES=""
 DISABLE_BOOTSTRAP_SECOND_STAGE=""
 ENABLE_SSH_SERVER=""
 DEFAULT_PASSWORD="changeme"
+DISABLE_BOOTSTRAP=""
+DISABLE_TERMINAL=""
+DISABLE_TASKER=""
+DISABLE_FLOAT=""
+DISABLE_WIDGET=""
+DISABLE_API=""
+DISABLE_BOOT=""
+DISABLE_STYLING=""
+DISABLE_GUI=""
+DISABLE_X11=""
 
 source "$TERMUX_GENERATOR_HOME/scripts/termux_generator_utils.sh"
 source "$TERMUX_GENERATOR_HOME/scripts/termux_generator_steps.sh"
@@ -47,6 +57,24 @@ show_usage() {
     echo "                                  Termux and its SSH server both launch automatically at device unlock,"
     echo "                                  install Termux:Boot also and launch it at least once, using"
     echo "                                  'adb [-s ID] shell am start -n [APP_NAME].boot/.BootActivity'!"
+    echo " --disable-bootstrap              Disable building the bootstrap(s)."
+    echo " --disable-terminal               Disable building the Terminal app."
+    echo " --disable-tasker                 Disable building the Tasker addon app."
+    echo "                                  Currently, this option only affects builds of type f-droid."
+    echo " --disable-float                  Disable building the Float addon app."
+    echo "                                  Currently, this option only affects builds of type f-droid."
+    echo " --disable-widget                 Disable building the Widget addon app."
+    echo "                                  Currently, this option only affects builds of type f-droid."
+    echo " --disable-api                    Disable building the API addon app."
+    echo "                                  Currently, this option only affects builds of type f-droid."
+    echo " --disable-boot                   Disable building the Boot addon app."
+    echo "                                  Currently, this option only affects builds of type f-droid."
+    echo " --disable-styling                Disable building the Styling addon app."
+    echo "                                  Currently, this option only affects builds of type f-droid."
+    echo " --disable-gui                    Disable building the GUI addon app."
+    echo "                                  Currently, this option only affects builds of type f-droid."
+    echo " --disable-x11                    Disable building the X11 addon app."
+    echo "                                  Currently, this option only affects builds of type f-droid."
     echo " -d, --dirty                      Build without cleaning previous artifacts."
     echo
 }
@@ -125,6 +153,36 @@ while (($# > 0)); do
         --enable-ssh-server)
             ENABLE_SSH_SERVER=1
             ;;
+        --disable-bootstrap)
+            DISABLE_BOOTSTRAP=1
+            ;;
+        --disable-terminal)
+            DISABLE_TERMINAL=1
+            ;;
+        --disable-tasker)
+            DISABLE_TASKER=1
+            ;;
+        --disable-float)
+            DISABLE_FLOAT=1
+            ;;
+        --disable-widget)
+            DISABLE_WIDGET=1
+            ;;
+        --disable-api)
+            DISABLE_API=1
+            ;;
+        --disable-boot)
+            DISABLE_BOOT=1
+            ;;
+        --disable-styling)
+            DISABLE_STYLING=1
+            ;;
+        --disable-gui)
+            DISABLE_GUI=1
+            ;;
+        --disable-x11)
+            DISABLE_X11=1
+            ;;
         *)
             echo "[!] Unknown option '$1'"
             show_usage
@@ -146,11 +204,19 @@ if [ -z "${DO_NOT_CLEAN}" ]; then
     fi
     patch_bootstraps
     patch_apps
-    build_termux_x11
-    move_termux_x11_deb
-    build_bootstraps
-    move_bootstraps
+    if [ -z "${DISABLE_X11}" ]; then
+        build_termux_x11
+        move_termux_x11_deb
+    fi
+    if [ -z "${DISABLE_BOOTSTRAP}" ]; then
+        build_bootstraps
+        move_bootstraps
+    fi
 fi
 
-build_apps
-move_apks
+if [[ "$TERMUX_APP_TYPE" == "f-droid" ]] || [ -z "${DISABLE_TERMINAL}" ]; then
+    build_apps
+    move_apks
+fi
+
+exit 0
