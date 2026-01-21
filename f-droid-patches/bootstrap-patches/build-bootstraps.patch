@@ -168,15 +168,18 @@
  			-f)
  				BUILD_PACKAGE_OPTIONS+=("-f")
  				FORCE_BUILD_PACKAGES=1
-@@ -480,10 +490,13 @@ main() {
+@@ -480,10 +490,16 @@ main() {
  		done
  
  		# Extract all debs.
 -		extract_debs "$TERMUX_ARCH" || return $?
-+		for pull_pkg in "${PACKAGES[@]}" termux-x11-nightly; do
++		for pull_pkg in "${PACKAGES[@]}"; do
 +			pull_package "$pull_pkg"
 +		done
 +		unset pull_pkg
++		if [ -f output/termux-x11-nightly_all.deb ]; then
++			pull_package termux-x11-nightly
++		fi
  
  		# Add termux bootstrap second stage files
 -		add_termux_bootstrap_second_stage_files "$package_arch"
