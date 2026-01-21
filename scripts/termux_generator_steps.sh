@@ -285,11 +285,22 @@ move_apks() {
         local build_dir="build/outputs/apk/debug"
     fi
 
-    for apk in termux-apps-main/termux-x11/app/build/outputs/apk/debug/*.apk; do
-        mv "$apk" "$TERMUX_APP__PACKAGE_NAME-$TERMUX_APP_TYPE-$(basename $apk)"
-    done
+    if [ -z "${DISABLE_X11}" ]; then
+        for apk in termux-apps-main/termux-x11/app/build/outputs/apk/debug/*.apk; do
+            mv "$apk" "$TERMUX_APP__PACKAGE_NAME-$TERMUX_APP_TYPE-$(basename $apk)"
+        done
+    fi
 
-    for apk in termux-apps-main/*/"$build_dir"/*.apk; do
-        mv "$apk" "$TERMUX_APP__PACKAGE_NAME-$TERMUX_APP_TYPE-$(basename $apk)"
-    done
+    if [[ -z "${DISABLE_TERMINAL}" ]] || \
+        [[ -z "${DISABLE_TASKER}" ]] || \
+        [[ -z "${DISABLE_FLOAT}" ]] || \
+        [[ -z "${DISABLE_WIDGET}" ]] || \
+        [[ -z "${DISABLE_API}" ]] || \
+        [[ -z "${DISABLE_BOOT}" ]] || \
+        [[ -z "${DISABLE_STYLING}" ]] || \
+        [[ -z "${DISABLE_GUI}" ]]; then
+        for apk in termux-apps-main/*/"$build_dir"/*.apk; do
+            mv "$apk" "$TERMUX_APP__PACKAGE_NAME-$TERMUX_APP_TYPE-$(basename $apk)"
+        done
+    fi
 }
