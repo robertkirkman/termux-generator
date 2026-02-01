@@ -74,7 +74,6 @@ show_usage() {
     echo " --disable-gui                    Disable building the GUI addon app."
     echo "                                  Currently, this option only affects builds of type f-droid."
     echo " --disable-x11                    Disable building the X11 addon app."
-    echo "                                  Currently, this option only affects builds of type f-droid."
     echo " -d, --dirty                      Build without cleaning previous artifacts."
     echo
 }
