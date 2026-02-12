@@ -1,0 +1,215 @@
+From abb68402d1f543800cebb943fbd5e07b9e8f2d72 Mon Sep 17 00:00:00 2001
+From: ozwaldorf <self@ossian.dev>
+Date: Wed, 11 Feb 2026 17:39:39 -0500
+Subject: [PATCH 1/2] feat: add setting to only show extra keys if no hardware
+ keyboard
+
+---
+ .../java/com/termux/app/TermuxActivity.java   | 26 ++++++++++++++++---
+ .../termux/TerminalIOPreferencesFragment.java |  5 ++++
+ .../terminal/TermuxTerminalViewClient.java    |  3 +++
+ app/src/main/res/values/strings.xml           |  5 ++++
+ .../xml/termux_terminal_io_preferences.xml    |  6 +++++
+ .../TermuxAppSharedPreferences.java           |  8 ++++++
+ .../TermuxPreferenceConstants.java            |  7 +++++
+ 7 files changed, 57 insertions(+), 3 deletions(-)
+
+diff --git a/termux-app/app/src/main/java/com/termux/app/TermuxActivity.java b/termux-app/app/src/main/java/com/termux/app/TermuxActivity.java
+index 0c9f74125b..2fce5f8e20 100644
+--- a/termux-app/app/src/main/java/com/termux/app/TermuxActivity.java
++++ b/termux-app/app/src/main/java/com/termux/app/TermuxActivity.java
+@@ -53,6 +53,7 @@
+ import com.termux.shared.termux.settings.properties.TermuxAppSharedProperties;
+ import com.termux.shared.termux.theme.TermuxThemeUtils;
+ import com.termux.shared.theme.NightMode;
++import com.termux.shared.view.KeyboardUtils;
+ import com.termux.shared.view.ViewUtils;
+ import com.termux.terminal.TerminalSession;
+ import com.termux.terminal.TerminalSessionClient;
+@@ -512,7 +513,7 @@ private void setTerminalToolbarView(Bundle savedInstanceState) {
+             mTermuxTerminalViewClient, mTermuxTerminalSessionActivityClient);
+ 
+         final ViewPager terminalToolbarViewPager = getTerminalToolbarViewPager();
+-        if (mPreferences.shouldShowTerminalToolbar()) terminalToolbarViewPager.setVisibility(View.VISIBLE);
++        if (shouldExtraKeysBeVisible()) terminalToolbarViewPager.setVisibility(View.VISIBLE);
+ 
+         ViewGroup.LayoutParams layoutParams = terminalToolbarViewPager.getLayoutParams();
+         mTerminalToolbarDefaultHeight = layoutParams.height;
+@@ -544,13 +545,32 @@ public void toggleTerminalToolbar() {
+ 
+         final boolean showNow = mPreferences.toogleShowTerminalToolbar();
+         Logger.showToast(this, (showNow ? getString(R.string.msg_enabling_terminal_toolbar) : getString(R.string.msg_disabling_terminal_toolbar)), true);
+-        terminalToolbarViewPager.setVisibility(showNow ? View.VISIBLE : View.GONE);
+-        if (showNow && isTerminalToolbarTextInputViewSelected()) {
++        boolean visible = showNow && !(mPreferences.isExtraKeysOnlyIfNoHardware() && KeyboardUtils.isHardKeyboardConnected(this));
++        terminalToolbarViewPager.setVisibility(visible ? View.VISIBLE : View.GONE);
++        if (visible && isTerminalToolbarTextInputViewSelected()) {
+             // Focus the text input view if just revealed.
+             findViewById(R.id.terminal_toolbar_text_input).requestFocus();
+         }
+     }
+ 
++    /**
++     * Whether the extra keys toolbar should be visible, considering both the user toolbar toggle
++     * and the "extra keys only if no hardware" setting.
++     */
++    public boolean shouldExtraKeysBeVisible() {
++        return mPreferences.shouldShowTerminalToolbar()
++            && !(mPreferences.isExtraKeysOnlyIfNoHardware() && KeyboardUtils.isHardKeyboardConnected(this));
++    }
++
++    /**
++     * Update extra keys toolbar visibility based on current hardware keyboard state and preferences.
++     */
++    public void updateExtraKeysVisibility() {
++        final ViewPager terminalToolbarViewPager = getTerminalToolbarViewPager();
++        if (terminalToolbarViewPager == null) return;
++        terminalToolbarViewPager.setVisibility(shouldExtraKeysBeVisible() ? View.VISIBLE : View.GONE);
++    }
++
+     private void saveTerminalToolbarTextInput(Bundle savedInstanceState) {
+         if (savedInstanceState == null) return;
+ 
+diff --git a/termux-app/app/src/main/java/com/termux/app/fragments/settings/termux/TerminalIOPreferencesFragment.java b/termux-app/app/src/main/java/com/termux/app/fragments/settings/termux/TerminalIOPreferencesFragment.java
+index f8504f43fd..96aa676557 100644
+--- a/termux-app/app/src/main/java/com/termux/app/fragments/settings/termux/TerminalIOPreferencesFragment.java
++++ b/termux-app/app/src/main/java/com/termux/app/fragments/settings/termux/TerminalIOPreferencesFragment.java
+@@ -60,6 +60,9 @@ public void putBoolean(String key, boolean value) {
+             case "soft_keyboard_enabled_only_if_no_hardware":
+                 mPreferences.setSoftKeyboardEnabledOnlyIfNoHardware(value);
+                 break;
++            case "extra_keys_only_if_no_hardware":
++                mPreferences.setExtraKeysOnlyIfNoHardware(value);
++                break;
+             default:
+                 break;
+         }
+@@ -74,6 +77,8 @@ public boolean getBoolean(String key, boolean defValue) {
+                 return mPreferences.isSoftKeyboardEnabled();
+             case "soft_keyboard_enabled_only_if_no_hardware":
+                 return mPreferences.isSoftKeyboardEnabledOnlyIfNoHardware();
++            case "extra_keys_only_if_no_hardware":
++                return mPreferences.isExtraKeysOnlyIfNoHardware();
+             default:
+                 return false;
+         }
+diff --git a/termux-app/app/src/main/java/com/termux/app/terminal/TermuxTerminalViewClient.java b/termux-app/app/src/main/java/com/termux/app/terminal/TermuxTerminalViewClient.java
+index 700c5e5098..9f2646406d 100644
+--- a/termux-app/app/src/main/java/com/termux/app/terminal/TermuxTerminalViewClient.java
++++ b/termux-app/app/src/main/java/com/termux/app/terminal/TermuxTerminalViewClient.java
+@@ -113,6 +113,9 @@ public void onResume() {
+         // Show the soft keyboard if required
+         setSoftKeyboardState(true, mActivity.isActivityRecreated());
+ 
++        // Update extra keys visibility based on hardware keyboard state
++        mActivity.updateExtraKeysVisibility();
++
+         mTerminalCursorBlinkerStateAlreadySet = false;
+ 
+         if (mActivity.getTerminalView().mEmulator != null) {
+diff --git a/termux-app/app/src/main/res/values/strings.xml b/termux-app/app/src/main/res/values/strings.xml
+index cbd2992ba1..b5c22dd95c 100644
+--- a/termux-app/app/src/main/res/values/strings.xml
++++ b/termux-app/app/src/main/res/values/strings.xml
+@@ -188,6 +188,11 @@
+                 <string name="termux_soft_keyboard_enabled_only_if_no_hardware_on">Soft keyboard will be enabled only if
+                     no hardware keyboard is connected.</string>
+ 
++                <!-- Extra Keys Only If No Hardware -->
++                <string name="termux_extra_keys_only_if_no_hardware_title">Extra Keys Only If No Hardware</string>
++                <string name="termux_extra_keys_only_if_no_hardware_off">Extra keys will be shown regardless of hardware keyboard. (Default)</string>
++                <string name="termux_extra_keys_only_if_no_hardware_on">Extra keys will be hidden when hardware keyboard is connected.</string>
++
+ 
+         <!-- Terminal View Preferences -->
+         <string name="termux_terminal_view_preferences_title">Terminal View</string>
+diff --git a/termux-app/app/src/main/res/xml/termux_terminal_io_preferences.xml b/termux-app/app/src/main/res/xml/termux_terminal_io_preferences.xml
+index ea9a0eb509..1f26fad721 100644
+--- a/termux-app/app/src/main/res/xml/termux_terminal_io_preferences.xml
++++ b/termux-app/app/src/main/res/xml/termux_terminal_io_preferences.xml
+@@ -16,6 +16,12 @@
+             app:summaryOn="@string/termux_soft_keyboard_enabled_only_if_no_hardware_on"
+             app:title="@string/termux_soft_keyboard_enabled_only_if_no_hardware_title" />
+ 
++        <SwitchPreferenceCompat
++            app:key="extra_keys_only_if_no_hardware"
++            app:summaryOff="@string/termux_extra_keys_only_if_no_hardware_off"
++            app:summaryOn="@string/termux_extra_keys_only_if_no_hardware_on"
++            app:title="@string/termux_extra_keys_only_if_no_hardware_title" />
++
+     </PreferenceCategory>
+ 
+ </PreferenceScreen>
+diff --git a/termux-app/termux-shared/src/main/java/com/termux/shared/termux/settings/preferences/TermuxAppSharedPreferences.java b/termux-app/termux-shared/src/main/java/com/termux/shared/termux/settings/preferences/TermuxAppSharedPreferences.java
+index cd3812fe49..7fd2b7e447 100644
+--- a/termux-app/termux-shared/src/main/java/com/termux/shared/termux/settings/preferences/TermuxAppSharedPreferences.java
++++ b/termux-app/termux-shared/src/main/java/com/termux/shared/termux/settings/preferences/TermuxAppSharedPreferences.java
+@@ -110,6 +110,14 @@ public void setSoftKeyboardEnabledOnlyIfNoHardware(boolean value) {
+         SharedPreferenceUtils.setBoolean(mSharedPreferences, TERMUX_APP.KEY_SOFT_KEYBOARD_ENABLED_ONLY_IF_NO_HARDWARE, value, false);
+     }
+ 
++    public boolean isExtraKeysOnlyIfNoHardware() {
++        return SharedPreferenceUtils.getBoolean(mSharedPreferences, TERMUX_APP.KEY_EXTRA_KEYS_ONLY_IF_NO_HARDWARE, TERMUX_APP.DEFAULT_VALUE_EXTRA_KEYS_ONLY_IF_NO_HARDWARE);
++    }
++
++    public void setExtraKeysOnlyIfNoHardware(boolean value) {
++        SharedPreferenceUtils.setBoolean(mSharedPreferences, TERMUX_APP.KEY_EXTRA_KEYS_ONLY_IF_NO_HARDWARE, value, false);
++    }
++
+ 
+ 
+     public boolean shouldKeepScreenOn() {
+diff --git a/termux-app/termux-shared/src/main/java/com/termux/shared/termux/settings/preferences/TermuxPreferenceConstants.java b/termux-app/termux-shared/src/main/java/com/termux/shared/termux/settings/preferences/TermuxPreferenceConstants.java
+index 15bc74c9f2..eda702fc10 100644
+--- a/termux-app/termux-shared/src/main/java/com/termux/shared/termux/settings/preferences/TermuxPreferenceConstants.java
++++ b/termux-app/termux-shared/src/main/java/com/termux/shared/termux/settings/preferences/TermuxPreferenceConstants.java
+@@ -117,6 +117,13 @@ public static final class TERMUX_APP {
+         public static final String KEY_SOFT_KEYBOARD_ENABLED_ONLY_IF_NO_HARDWARE = "soft_keyboard_enabled_only_if_no_hardware";
+         public static final boolean DEFAULT_VALUE_KEY_SOFT_KEYBOARD_ENABLED_ONLY_IF_NO_HARDWARE = false;
+ 
++        /**
++         * Defines the key for whether the extra keys toolbar will be shown only if no hardware keyboard
++         * attached, for cases where users want to use a hardware keyboard instead.
++         */
++        public static final String KEY_EXTRA_KEYS_ONLY_IF_NO_HARDWARE = "extra_keys_only_if_no_hardware";
++        public static final boolean DEFAULT_VALUE_EXTRA_KEYS_ONLY_IF_NO_HARDWARE = false;
++
+ 
+         /**
+          * Defines the key for whether to always keep screen on.
+
+From 700cb935308240093cce46503997e721980590b5 Mon Sep 17 00:00:00 2001
+From: ozwaldorf <self@ossian.dev>
+Date: Wed, 11 Feb 2026 18:04:00 -0500
+Subject: [PATCH 2/2] feat: receive configuration changes and update hardware
+ keyboard state in foreground
+
+---
+ app/src/main/java/com/termux/app/TermuxActivity.java | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/termux-app/app/src/main/java/com/termux/app/TermuxActivity.java b/termux-app/app/src/main/java/com/termux/app/TermuxActivity.java
+index 2fce5f8e20..e6429aa3c4 100644
+--- a/termux-app/app/src/main/java/com/termux/app/TermuxActivity.java
++++ b/termux-app/app/src/main/java/com/termux/app/TermuxActivity.java
+@@ -6,6 +6,7 @@
+ import android.content.BroadcastReceiver;
+ import android.content.ComponentName;
+ import android.content.Context;
++import android.content.res.Configuration;
+ import android.content.Intent;
+ import android.content.IntentFilter;
+ import android.content.ServiceConnection;
+@@ -323,6 +324,12 @@ public void onResume() {
+         mIsOnResumeAfterOnCreate = false;
+     }
+ 
++    @Override
++    public void onConfigurationChanged(@NonNull Configuration newConfig) {
++        super.onConfigurationChanged(newConfig);
++        updateExtraKeysVisibility();
++    }
++
+     @Override
+     protected void onStop() {
+         super.onStop();
