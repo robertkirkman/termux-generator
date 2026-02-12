@@ -838,3 +838,69 @@ index 5f3200d370..4f8c46141f 100644
              Intent intent = new Intent(this, TermuxActivity.class);
              intent.addFlags(Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT |
                             Intent.FLAG_ACTIVITY_NEW_TASK |
+From d44e47ac9540ad1d8bae438a1cf898ed5ae74b14 Mon Sep 17 00:00:00 2001
+From: ozwaldorf <self@ossian.dev>
+Date: Thu, 12 Feb 2026 15:38:33 -0500
+Subject: [PATCH] feat: always show new window button and vertical layout on
+ a7+
+
+---
+ .../java/com/termux/app/TermuxActivity.java   | 31 +++++--------------
+ 1 file changed, 8 insertions(+), 23 deletions(-)
+
+diff --git a/termux-app/app/src/main/java/com/termux/app/TermuxActivity.java b/termux-app/app/src/main/java/com/termux/app/TermuxActivity.java
+index 4f8c46141f..355dd05bd2 100644
+--- a/termux-app/app/src/main/java/com/termux/app/TermuxActivity.java
++++ b/termux-app/app/src/main/java/com/termux/app/TermuxActivity.java
+@@ -281,11 +281,6 @@ public void onCreate(Bundle savedInstanceState) {
+         // Send the {@link TermuxConstants#BROADCAST_TERMUX_OPENED} broadcast to notify apps that Termux
+         // app has been opened.
+         TermuxUtils.sendTermuxOpenedBroadcast(this);
+-
+-        // Set initial multi-window UI state
+-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+-            onMultiWindowModeChanged(isInMultiWindowMode());
+-        }
+     }
+ 
+     @Override
+@@ -401,18 +396,6 @@ public void onSaveInstanceState(@NonNull Bundle savedInstanceState) {
+     public void onMultiWindowModeChanged(boolean isInMultiWindowMode) {
+         super.onMultiWindowModeChanged(isInMultiWindowMode);
+         Logger.logDebug(LOG_TAG, "onMultiWindowModeChanged: " + isInMultiWindowMode);
+-
+-        // Show or hide the new window button based on multi-window mode
+-        View newWindowButton = findViewById(R.id.new_window_button);
+-        if (newWindowButton != null) {
+-            newWindowButton.setVisibility(isInMultiWindowMode ? View.VISIBLE : View.GONE);
+-        }
+-
+-        // Change drawer buttons orientation to vertical in multi-window mode to save horizontal space
+-        LinearLayout drawerButtons = findViewById(R.id.drawer_buttons);
+-        if (drawerButtons != null) {
+-            drawerButtons.setOrientation(isInMultiWindowMode ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
+-        }
+     }
+ 
+     /** Add a new window */
+@@ -665,12 +648,14 @@ private void setNewWindowButtonView() {
+         View newWindowButton = findViewById(R.id.new_window_button);
+         if (newWindowButton != null) {
+             newWindowButton.setOnClickListener(v -> addNewWindow());
+-            // Initially hidden, shown only in multi-window mode
+-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInMultiWindowMode()) {
+-                newWindowButton.setVisibility(View.VISIBLE);
+-            } else {
+-                newWindowButton.setVisibility(View.GONE);
+-            }
++            // Show if multi-window API is available (N+)
++            newWindowButton.setVisibility(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N ? View.VISIBLE : View.GONE);
++        }
++
++        // Use vertical orientation for drawer buttons if multi-window is available
++        LinearLayout drawerButtons = findViewById(R.id.drawer_buttons);
++        if (drawerButtons != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
++            drawerButtons.setOrientation(LinearLayout.VERTICAL);
+         }
+     }
+ 
