@@ -1248,10 +1248,10 @@ index 0292834b35..74be1cda2e 100644
              if (unattachedSession != null) {
                  setCurrentSession(unattachedSession);
              } else {
-diff --git a/terminal-emulator/src/main/java/com/termux/terminal/TerminalSession.java b/terminal-emulator/src/main/java/com/termux/terminal/TerminalSession.java
+diff --git a/termux-app/terminal-emulator/src/main/java/com/termux/terminal/TerminalSession.java b/termux-app/terminal-emulator/src/main/java/com/termux/terminal/TerminalSession.java
 index 2424ab8296..b068be203b 100644
---- a/terminal-emulator/src/main/java/com/termux/terminal/TerminalSession.java
-+++ b/terminal-emulator/src/main/java/com/termux/terminal/TerminalSession.java
+--- a/termux-app/terminal-emulator/src/main/java/com/termux/terminal/TerminalSession.java
++++ b/termux-app/terminal-emulator/src/main/java/com/termux/terminal/TerminalSession.java
 @@ -68,9 +68,6 @@ public final class TerminalSession extends TerminalOutput {
      /** Set by the application for user identification of session, not by terminal. */
      public String mSessionName;
@@ -1262,10 +1262,10 @@ index 2424ab8296..b068be203b 100644
      final Handler mMainThreadHandler = new MainThreadHandler();
  
      private final String mShellPath;
-diff --git a/terminal-view/src/main/java/com/termux/view/TerminalView.java b/terminal-view/src/main/java/com/termux/view/TerminalView.java
+diff --git a/termux-app/terminal-view/src/main/java/com/termux/view/TerminalView.java b/termux-app/terminal-view/src/main/java/com/termux/view/TerminalView.java
 index 5f9452696e..8f367ea7ca 100644
---- a/terminal-view/src/main/java/com/termux/view/TerminalView.java
-+++ b/terminal-view/src/main/java/com/termux/view/TerminalView.java
+--- a/termux-app/terminal-view/src/main/java/com/termux/view/TerminalView.java
++++ b/termux-app/terminal-view/src/main/java/com/termux/view/TerminalView.java
 @@ -284,42 +284,38 @@ public void setIsTerminalViewKeyLoggingEnabled(boolean value) {
  
      /**
