@@ -904,3 +904,664 @@ index 4f8c46141f..355dd05bd2 100644
          }
      }
  
+From 74bb4efe9293d00559f03f73790932c7305f2257 Mon Sep 17 00:00:00 2001
+From: ozwaldorf <self@ossian.dev>
+Date: Thu, 12 Feb 2026 21:36:39 -0500
+Subject: [PATCH] refactor: centralize session to activity mappings
+
+---
+ .../java/com/termux/app/TermuxActivity.java   |  28 +++--
+ .../java/com/termux/app/TermuxService.java    | 112 +++++++++++++-----
+ .../TermuxSessionsListViewController.java     |  12 +-
+ .../TermuxTerminalSessionActivityClient.java  |  28 +++--
+ .../com/termux/terminal/TerminalSession.java  |   3 -
+ .../java/com/termux/view/TerminalView.java    |  28 ++---
+ 6 files changed, 138 insertions(+), 73 deletions(-)
+
+diff --git a/termux-app/app/src/main/java/com/termux/app/TermuxActivity.java b/termux-app/app/src/main/java/com/termux/app/TermuxActivity.java
+index 355dd05bd2..6bd4152911 100644
+--- a/termux-app/app/src/main/java/com/termux/app/TermuxActivity.java
++++ b/termux-app/app/src/main/java/com/termux/app/TermuxActivity.java
+@@ -177,6 +177,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
+ 
+     private float mTerminalToolbarDefaultHeight;
+ 
++    /**
++     * Unique identifier for this activity instance. Used for session attachment tracking.
++     */
++    private final int mActivityId = System.identityHashCode(this);
++
+ 
+     private static final int CONTEXT_MENU_SELECT_URL_ID = 0;
+     private static final int CONTEXT_MENU_SHARE_TRANSCRIPT_ID = 1;
+@@ -356,21 +361,20 @@ public void onDestroy() {
+ 
+         if (mIsInvalidState) return;
+ 
+-        // Detach the current session when the activity is destroyed
+-        // and reset its client to the service client to avoid memory leaks
+-        if (mTerminalView != null && mTermuxService != null) {
++        // Detach all sessions owned by this activity and reset their clients
++        if (mTermuxService != null) {
+             TerminalSession currentSession = getCurrentSession();
+             if (currentSession != null) {
+                 // Reset this session's client to the service client
+                 mTermuxService.resetSessionClient(currentSession);
+             }
+-            mTerminalView.detachSession();
++            if (mTerminalView != null) {
++                mTerminalView.detachSession();
++            }
+ 
+-            // Notify other windows that session attachment state changed
+-            mTermuxService.notifyAllSessionListsUpdated();
+-        }
++            // Detach all sessions owned by this activity (single source of truth)
++            mTermuxService.detachAllSessionsForActivity(mActivityId);
+ 
+-        if (mTermuxService != null) {
+             // Remove this activity's client from the service's set
+             mTermuxService.removeTermuxTerminalSessionClient(mTermuxTerminalSessionActivityClient);
+             mTermuxService = null;
+@@ -457,13 +461,13 @@ public void onServiceConnected(ComponentName componentName, IBinder service) {
+                 mTermuxTerminalSessionActivityClient.addNewSession(isFailSafe, null);
+             } else {
+                 // In multi-window mode, try to atomically claim first unattached session
+-                TerminalSession sessionToAttach = mTermuxService.claimFirstUnattachedSession();
++                TerminalSession sessionToAttach = mTermuxService.claimFirstUnattachedSession(mActivityId);
+                 if (sessionToAttach != null) {
+                     mTermuxTerminalSessionActivityClient.setCurrentSession(sessionToAttach);
+                 } else {
+                     // All sessions are attached, create a new one or use stored session
+                     TerminalSession storedSession = mTermuxTerminalSessionActivityClient.getCurrentStoredSessionOrLast();
+-                    if (storedSession != null && !storedSession.mAttached) {
++                    if (storedSession != null && !mTermuxService.isSessionAttached(storedSession)) {
+                         mTermuxTerminalSessionActivityClient.setCurrentSession(storedSession);
+                     } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInMultiWindowMode()) {
+                         // In multi-window mode with all sessions attached, create a new session
+@@ -942,6 +946,10 @@ public TermuxService getTermuxService() {
+         return mTermuxService;
+     }
+ 
++    public int getActivityId() {
++        return mActivityId;
++    }
++
+     public TerminalView getTerminalView() {
+         return mTerminalView;
+     }
+diff --git a/termux-app/app/src/main/java/com/termux/app/TermuxService.java b/termux-app/app/src/main/java/com/termux/app/TermuxService.java
+index 3a5210e7fe..4658e1c25e 100644
+--- a/termux-app/app/src/main/java/com/termux/app/TermuxService.java
++++ b/termux-app/app/src/main/java/com/termux/app/TermuxService.java
+@@ -50,8 +50,10 @@
+ import com.termux.terminal.TerminalSessionClient;
+ 
+ import java.util.ArrayList;
++import java.util.HashMap;
+ import java.util.HashSet;
+ import java.util.List;
++import java.util.Map;
+ import java.util.Set;
+ 
+ /**
+@@ -86,6 +88,12 @@ class LocalBinder extends Binder {
+      */
+     private final Set<TermuxTerminalSessionActivityClient> mActivityClients = new HashSet<>();
+ 
++    /**
++     * Single source of truth for session attachment state. Maps session handle to the activity
++     * instance ID that owns it. If a session handle is not in this map, it is unattached.
++     */
++    private final Map<String, Integer> mSessionAttachments = new HashMap<>();
++
+     /** The basic implementation of the {@link TerminalSessionClient} interface to be used by {@link TerminalSession}
+      * that does not hold activity references and only a service reference.
+      */
+@@ -795,8 +803,85 @@ public synchronized void notifyAllSessionListsUpdated() {
+         }
+     }
+ 
++    /**
++     * Check if a session is attached to any activity.
++     * @param session The session to check
++     * @return true if the session is attached to any activity
++     */
++    public synchronized boolean isSessionAttached(TerminalSession session) {
++        if (session == null) return false;
++        return mSessionAttachments.containsKey(session.mHandle);
++    }
+ 
++    /**
++     * Check if a session is attached to a different activity than the one specified.
++     * @param session The session to check
++     * @param activityId The activity ID to compare against
++     * @return true if the session is attached to a different activity
++     */
++    public synchronized boolean isSessionAttachedToOther(TerminalSession session, int activityId) {
++        if (session == null) return false;
++        Integer owner = mSessionAttachments.get(session.mHandle);
++        return owner != null && owner != activityId;
++    }
+ 
++    /**
++     * Attempt to attach a session to an activity. Fails if already attached elsewhere.
++     * @param session The session to attach
++     * @param activityId The activity ID claiming the session
++     * @return true if successfully attached, false if already attached elsewhere
++     */
++    public synchronized boolean attachSession(TerminalSession session, int activityId) {
++        if (session == null) return false;
++        Integer currentOwner = mSessionAttachments.get(session.mHandle);
++        if (currentOwner != null && currentOwner != activityId) {
++            return false;  // Already attached to a different activity
++        }
++        mSessionAttachments.put(session.mHandle, activityId);
++        notifyAllSessionListsUpdated();
++        return true;
++    }
++
++    /**
++     * Detach a session from an activity. Only succeeds if the activity owns the session.
++     * @param session The session to detach
++     * @param activityId The activity ID releasing the session
++     */
++    public synchronized void detachSession(TerminalSession session, int activityId) {
++        if (session == null) return;
++        Integer owner = mSessionAttachments.get(session.mHandle);
++        if (owner != null && owner == activityId) {
++            mSessionAttachments.remove(session.mHandle);
++            notifyAllSessionListsUpdated();
++        }
++    }
++
++    /**
++     * Detach all sessions owned by an activity. Called when activity is destroyed.
++     * @param activityId The activity ID whose sessions should be detached
++     */
++    public synchronized void detachAllSessionsForActivity(int activityId) {
++        mSessionAttachments.entrySet().removeIf(entry -> entry.getValue() == activityId);
++        notifyAllSessionListsUpdated();
++    }
++
++    /**
++     * Atomically claim an unattached session by marking it as attached.
++     * @param activityId The activity ID claiming the session
++     * @return The claimed session, or null if no unattached sessions are available
++     */
++    @Nullable
++    public synchronized TerminalSession claimFirstUnattachedSession(int activityId) {
++        for (int i = 0; i < mShellManager.mTermuxSessions.size(); i++) {
++            TerminalSession session = mShellManager.mTermuxSessions.get(i).getTerminalSession();
++            if (!mSessionAttachments.containsKey(session.mHandle)) {
++                mSessionAttachments.put(session.mHandle, activityId);
++                notifyAllSessionListsUpdated();
++                return session;
++            }
++        }
++        return null;
++    }
+ 
+ 
+     private Notification buildNotification() {
+@@ -926,33 +1011,6 @@ public synchronized TermuxSession getLastTermuxSession() {
+         return mShellManager.mTermuxSessions.isEmpty() ? null : mShellManager.mTermuxSessions.get(mShellManager.mTermuxSessions.size() - 1);
+     }
+ 
+-    /** Get the first session that is not attached to any window. Used for multi-window support. */
+-    @Nullable
+-    public synchronized TerminalSession getFirstUnattachedSession() {
+-        for (int i = 0; i < mShellManager.mTermuxSessions.size(); i++) {
+-            TerminalSession session = mShellManager.mTermuxSessions.get(i).getTerminalSession();
+-            if (!session.mAttached) {
+-                return session;
+-            }
+-        }
+-        return null;
+-    }
+-
+-    /** Atomically claim an unattached session by marking it as attached. Returns the session if
+-     * successful, null if no unattached sessions are available. This prevents race conditions
+-     * when multiple windows try to claim a session simultaneously. */
+-    @Nullable
+-    public synchronized TerminalSession claimFirstUnattachedSession() {
+-        for (int i = 0; i < mShellManager.mTermuxSessions.size(); i++) {
+-            TerminalSession session = mShellManager.mTermuxSessions.get(i).getTerminalSession();
+-            if (!session.mAttached) {
+-                session.mAttached = true;
+-                return session;
+-            }
+-        }
+-        return null;
+-    }
+-
+     public synchronized int getIndexOfSession(TerminalSession terminalSession) {
+         if (terminalSession == null) return -1;
+ 
+diff --git a/termux-app/app/src/main/java/com/termux/app/terminal/TermuxSessionsListViewController.java b/termux-app/app/src/main/java/com/termux/app/terminal/TermuxSessionsListViewController.java
+index 4cae119024..d6c7a543cd 100644
+--- a/termux-app/app/src/main/java/com/termux/app/terminal/TermuxSessionsListViewController.java
++++ b/termux-app/app/src/main/java/com/termux/app/terminal/TermuxSessionsListViewController.java
+@@ -91,8 +91,8 @@ public View getView(int position, View convertView, @NonNull ViewGroup parent) {
+         sessionTitleView.setTextColor(color);
+ 
+         // Gray out sessions attached to other windows
+-        TerminalSession currentSession = mActivity.getCurrentSession();
+-        boolean isAttachedToOtherWindow = sessionAtRow.mAttached && sessionAtRow != currentSession;
++        boolean isAttachedToOtherWindow = mActivity.getTermuxService() != null &&
++            mActivity.getTermuxService().isSessionAttachedToOther(sessionAtRow, mActivity.getActivityId());
+         if (isAttachedToOtherWindow) {
+             sessionTitleView.setAlpha(0.5f);
+         } else {
+@@ -108,20 +108,20 @@ public boolean isEnabled(int position) {
+         if (termuxSession == null) return false;
+ 
+         TerminalSession session = termuxSession.getTerminalSession();
+-        TerminalSession currentSession = mActivity.getCurrentSession();
+ 
+         // Disable (gray out) sessions attached to other windows
+         // Sessions attached to current window should remain clickable
+-        return !session.mAttached || session == currentSession;
++        if (mActivity.getTermuxService() == null) return true;
++        return !mActivity.getTermuxService().isSessionAttachedToOther(session, mActivity.getActivityId());
+     }
+ 
+     @Override
+     public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+         TermuxSession clickedSession = getItem(position);
+         TerminalSession session = clickedSession.getTerminalSession();
+-        TerminalSession currentSession = mActivity.getCurrentSession();
+         // Only switch if the session is not attached to another window
+-        if (!session.mAttached || session == currentSession) {
++        if (mActivity.getTermuxService() == null ||
++            !mActivity.getTermuxService().isSessionAttachedToOther(session, mActivity.getActivityId())) {
+             mActivity.getTermuxTerminalSessionClient().setCurrentSession(session);
+             mActivity.getDrawer().closeDrawers();
+         }
+diff --git a/termux-app/app/src/main/java/com/termux/app/terminal/TermuxTerminalSessionActivityClient.java b/termux-app/app/src/main/java/com/termux/app/terminal/TermuxTerminalSessionActivityClient.java
+index 0292834b35..74be1cda2e 100644
+--- a/termux-app/app/src/main/java/com/termux/app/terminal/TermuxTerminalSessionActivityClient.java
++++ b/termux-app/app/src/main/java/com/termux/app/terminal/TermuxTerminalSessionActivityClient.java
+@@ -296,15 +296,21 @@ private synchronized void releaseBellSoundPool() {
+     public void setCurrentSession(TerminalSession session) {
+         if (session == null) return;
+ 
+-        if (mActivity.getTerminalView().attachSession(session)) {
+-            // notify about switched session if not already displaying the session
+-            notifyOfSessionChange();
+-
+-            // Notify all windows that session attachment state changed so they can update their lists
+-            TermuxService service = mActivity.getTermuxService();
++        TermuxService service = mActivity.getTermuxService();
++        TerminalSession previousSession = mActivity.getTerminalView().attachSession(session);
++        if (previousSession != session) {
++            // Session changed - update attachment state through the service
+             if (service != null) {
+-                service.notifyAllSessionListsUpdated();
++                // Detach the previous session from this activity
++                if (previousSession != null) {
++                    service.detachSession(previousSession, mActivity.getActivityId());
++                }
++                // Attach the new session to this activity
++                service.attachSession(session, mActivity.getActivityId());
+             }
++
++            // notify about switched session if not already displaying the session
++            notifyOfSessionChange();
+         }
+ 
+         // Set this activity's client on the session so it receives callbacks (render updates, etc.)
+@@ -333,6 +339,7 @@ public void switchToSession(boolean forward) {
+         TerminalSession currentTerminalSession = mActivity.getCurrentSession();
+         int currentIndex = service.getIndexOfSession(currentTerminalSession);
+         int size = service.getTermuxSessionsSize();
++        int activityId = mActivity.getActivityId();
+ 
+         // Find the next unattached session in the given direction
+         int index = currentIndex;
+@@ -347,7 +354,7 @@ public void switchToSession(boolean forward) {
+             if (termuxSession != null) {
+                 TerminalSession session = termuxSession.getTerminalSession();
+                 // Skip sessions attached to other windows, but allow switching to current session
+-                if (!session.mAttached || session == currentTerminalSession) {
++                if (!service.isSessionAttachedToOther(session, activityId)) {
+                     setCurrentSession(session);
+                     return;
+                 }
+@@ -362,9 +369,8 @@ public void switchToSession(int index) {
+         TermuxSession termuxSession = service.getTermuxSession(index);
+         if (termuxSession != null) {
+             TerminalSession session = termuxSession.getTerminalSession();
+-            TerminalSession currentSession = mActivity.getCurrentSession();
+             // Only switch if the session is not attached to another window
+-            if (!session.mAttached || session == currentSession) {
++            if (!service.isSessionAttachedToOther(session, mActivity.getActivityId())) {
+                 setCurrentSession(session);
+             }
+         }
+@@ -473,7 +479,7 @@ public void removeFinishedSession(TerminalSession finishedSession) {
+             mActivity.finishActivityIfNotFinishing();
+         } else {
+             // Try to atomically claim an unattached session to switch to
+-            TerminalSession unattachedSession = service.claimFirstUnattachedSession();
++            TerminalSession unattachedSession = service.claimFirstUnattachedSession(mActivity.getActivityId());
+             if (unattachedSession != null) {
+                 setCurrentSession(unattachedSession);
+             } else {
+diff --git a/terminal-emulator/src/main/java/com/termux/terminal/TerminalSession.java b/terminal-emulator/src/main/java/com/termux/terminal/TerminalSession.java
+index 2424ab8296..b068be203b 100644
+--- a/terminal-emulator/src/main/java/com/termux/terminal/TerminalSession.java
++++ b/terminal-emulator/src/main/java/com/termux/terminal/TerminalSession.java
+@@ -68,9 +68,6 @@ public final class TerminalSession extends TerminalOutput {
+     /** Set by the application for user identification of session, not by terminal. */
+     public String mSessionName;
+ 
+-    /** Whether this session is attached to a TerminalView. Used for multi-window support. */
+-    public boolean mAttached;
+-
+     final Handler mMainThreadHandler = new MainThreadHandler();
+ 
+     private final String mShellPath;
+diff --git a/terminal-view/src/main/java/com/termux/view/TerminalView.java b/terminal-view/src/main/java/com/termux/view/TerminalView.java
+index 5f9452696e..8f367ea7ca 100644
+--- a/terminal-view/src/main/java/com/termux/view/TerminalView.java
++++ b/terminal-view/src/main/java/com/termux/view/TerminalView.java
+@@ -284,42 +284,38 @@ public void setIsTerminalViewKeyLoggingEnabled(boolean value) {
+ 
+     /**
+      * Attach a {@link TerminalSession} to this view.
++     * Note: The caller (activity) is responsible for managing attachment state via the service.
+      *
+      * @param session The {@link TerminalSession} this view will be displaying.
++     * @return The previous session that was attached (may be null), so caller can detach it
+      */
+-    public boolean attachSession(TerminalSession session) {
+-        if (session == mTermSession) return false;
++    public TerminalSession attachSession(TerminalSession session) {
++        if (session == mTermSession) return null;
+         mTopRow = 0;
+ 
+-        // Detach the old session
+-        if (mTermSession != null) {
+-            mTermSession.mAttached = false;
+-        }
++        TerminalSession previousSession = mTermSession;
+ 
+         mTermSession = session;
+         mEmulator = null;
+         mCombiningAccent = 0;
+ 
+-        // Attach the new session
+-        if (mTermSession != null) {
+-            mTermSession.mAttached = true;
+-        }
+-
+         updateSize();
+ 
+         // Wait with enabling the scrollbar until we have a terminal to get scroll position from.
+         setVerticalScrollBarEnabled(true);
+ 
+-        return true;
++        return previousSession;
+     }
+ 
+     /**
+      * Detach the current session from this view.
++     * Note: The caller (activity) is responsible for managing attachment state via the service.
++     * @return The session that was detached (may be null)
+      */
+-    public void detachSession() {
+-        if (mTermSession != null) {
+-            mTermSession.mAttached = false;
+-        }
++    public TerminalSession detachSession() {
++        TerminalSession previousSession = mTermSession;
++        mTermSession = null;
++        return previousSession;
+     }
+ 
+     @Override
+From 132c59e46a49b301db84fc816126917636e6ede2 Mon Sep 17 00:00:00 2001
+From: ozwaldorf <self@ossian.dev>
+Date: Thu, 12 Feb 2026 21:36:56 -0500
+Subject: [PATCH] feat: bring attached sessions to foreground, toast on failure
+
+---
+ app/src/main/AndroidManifest.xml              |  1 +
+ .../java/com/termux/app/TermuxService.java    | 25 ++++++++++++
+ .../TermuxSessionsListViewController.java     | 39 +++++++++----------
+ .../TermuxTerminalSessionActivityClient.java  |  9 +++--
+ app/src/main/res/layout/activity_termux.xml   |  2 +-
+ app/src/main/res/values/strings.xml           |  1 +
+ 6 files changed, 52 insertions(+), 25 deletions(-)
+
+diff --git a/termux-app/app/src/main/AndroidManifest.xml b/termux-app/app/src/main/AndroidManifest.xml
+index 8a1b624f3b..aceb349787 100644
+--- a/termux-app/app/src/main/AndroidManifest.xml
++++ b/termux-app/app/src/main/AndroidManifest.xml
+@@ -35,6 +35,7 @@
+     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
++    <uses-permission android:name="android.permission.REORDER_TASKS" />
+     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+ 
+     <application
+diff --git a/termux-app/app/src/main/java/com/termux/app/TermuxService.java b/termux-app/app/src/main/java/com/termux/app/TermuxService.java
+index 4658e1c25e..3cccd600d3 100644
+--- a/termux-app/app/src/main/java/com/termux/app/TermuxService.java
++++ b/termux-app/app/src/main/java/com/termux/app/TermuxService.java
+@@ -825,6 +825,31 @@ public synchronized boolean isSessionAttachedToOther(TerminalSession session, in
+         return owner != null && owner != activityId;
+     }
+ 
++    /**
++     * Bring the activity that owns a session to the foreground.
++     * @param session The session whose owning activity should be focused
++     * @return true if the activity was found and brought to front
++     */
++    @SuppressLint("MissingPermission")
++    public synchronized boolean focusActivityForSession(TerminalSession session) {
++        if (session == null) return false;
++        Integer ownerId = mSessionAttachments.get(session.mHandle);
++        if (ownerId == null) return false;
++
++        for (TermuxTerminalSessionActivityClient client : mActivityClients) {
++            TermuxActivity activity = client.getActivity();
++            if (activity != null && activity.getActivityId() == ownerId) {
++                // Bring the activity's task to front
++                android.app.ActivityManager am = (android.app.ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
++                if (am != null) {
++                    am.moveTaskToFront(activity.getTaskId(), 0);
++                }
++                return true;
++            }
++        }
++        return false;
++    }
++
+     /**
+      * Attempt to attach a session to an activity. Fails if already attached elsewhere.
+      * @param session The session to attach
+diff --git a/termux-app/app/src/main/java/com/termux/app/terminal/TermuxSessionsListViewController.java b/termux-app/app/src/main/java/com/termux/app/terminal/TermuxSessionsListViewController.java
+index d6c7a543cd..a13c01b354 100644
+--- a/termux-app/app/src/main/java/com/termux/app/terminal/TermuxSessionsListViewController.java
++++ b/termux-app/app/src/main/java/com/termux/app/terminal/TermuxSessionsListViewController.java
+@@ -58,11 +58,15 @@ public View getView(int position, View convertView, @NonNull ViewGroup parent) {
+         }
+ 
+         boolean shouldEnableDarkTheme = ThemeUtils.shouldEnableDarkTheme(mActivity, NightMode.getAppNightMode().getName());
++        boolean isCurrentSession = sessionAtRow == mActivity.getCurrentSession();
+ 
+-        if (shouldEnableDarkTheme) {
+-            sessionTitleView.setBackground(
+-                ContextCompat.getDrawable(mActivity, R.drawable.session_background_black_selected)
+-            );
++        // Set background based on whether this is the current session
++        if (isCurrentSession) {
++            sessionTitleView.setBackground(ContextCompat.getDrawable(mActivity,
++                shouldEnableDarkTheme ? R.drawable.current_session_black : R.drawable.current_session));
++        } else {
++            sessionTitleView.setBackground(ContextCompat.getDrawable(mActivity,
++                shouldEnableDarkTheme ? R.drawable.session_background_black_selected : R.drawable.session_background_selected));
+         }
+ 
+         String name = sessionAtRow.mSessionName;
+@@ -102,29 +106,22 @@ public View getView(int position, View convertView, @NonNull ViewGroup parent) {
+         return sessionRowView;
+     }
+ 
+-    @Override
+-    public boolean isEnabled(int position) {
+-        TermuxSession termuxSession = getItem(position);
+-        if (termuxSession == null) return false;
+-
+-        TerminalSession session = termuxSession.getTerminalSession();
+-
+-        // Disable (gray out) sessions attached to other windows
+-        // Sessions attached to current window should remain clickable
+-        if (mActivity.getTermuxService() == null) return true;
+-        return !mActivity.getTermuxService().isSessionAttachedToOther(session, mActivity.getActivityId());
+-    }
+-
+     @Override
+     public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+         TermuxSession clickedSession = getItem(position);
+         TerminalSession session = clickedSession.getTerminalSession();
+-        // Only switch if the session is not attached to another window
+-        if (mActivity.getTermuxService() == null ||
+-            !mActivity.getTermuxService().isSessionAttachedToOther(session, mActivity.getActivityId())) {
++        if (mActivity.getTermuxService() == null) return;
++
++        if (mActivity.getTermuxService().isSessionAttachedToOther(session, mActivity.getActivityId())) {
++            // Session is attached to another window - focus that window instead
++            if (!mActivity.getTermuxService().focusActivityForSession(session)) {
++                mActivity.showToast(mActivity.getString(R.string.msg_failed_to_focus_window), true);
++            }
++        } else {
++            // Session is unattached or attached to this window - switch to it
+             mActivity.getTermuxTerminalSessionClient().setCurrentSession(session);
+-            mActivity.getDrawer().closeDrawers();
+         }
++        mActivity.getDrawer().closeDrawers();
+     }
+ 
+     @Override
+diff --git a/termux-app/app/src/main/java/com/termux/app/terminal/TermuxTerminalSessionActivityClient.java b/termux-app/app/src/main/java/com/termux/app/terminal/TermuxTerminalSessionActivityClient.java
+index 74be1cda2e..a2a47733aa 100644
+--- a/termux-app/app/src/main/java/com/termux/app/terminal/TermuxTerminalSessionActivityClient.java
++++ b/termux-app/app/src/main/java/com/termux/app/terminal/TermuxTerminalSessionActivityClient.java
+@@ -54,6 +54,10 @@ public TermuxTerminalSessionActivityClient(TermuxActivity activity) {
+         this.mActivity = activity;
+     }
+ 
++    public TermuxActivity getActivity() {
++        return mActivity;
++    }
++
+     /**
+      * Should be called when mActivity.onCreate() is called
+      */
+@@ -319,7 +323,7 @@ public void setCurrentSession(TerminalSession session) {
+ 
+         // We call the following even when the session is already being displayed since config may
+         // be stale, like current session not selected or scrolled to.
+-        checkAndScrollToSession(session);
++        scrollToSession(session);
+         updateBackgroundColor();
+     }
+ 
+@@ -494,7 +498,7 @@ public void termuxSessionListNotifyUpdated() {
+         mActivity.termuxSessionListNotifyUpdated();
+     }
+ 
+-    public void checkAndScrollToSession(TerminalSession session) {
++    public void scrollToSession(TerminalSession session) {
+         if (!mActivity.isVisible()) return;
+         TermuxService service = mActivity.getTermuxService();
+         if (service == null) return;
+@@ -504,7 +508,6 @@ public void checkAndScrollToSession(TerminalSession session) {
+         final ListView termuxSessionsListView = mActivity.findViewById(R.id.terminal_sessions_list);
+         if (termuxSessionsListView == null) return;
+ 
+-        termuxSessionsListView.setItemChecked(indexOfSession, true);
+         // Delay is necessary otherwise sometimes scroll to newly added session does not happen
+         termuxSessionsListView.postDelayed(() -> termuxSessionsListView.smoothScrollToPosition(indexOfSession), 1000);
+     }
+diff --git a/termux-app/app/src/main/res/layout/activity_termux.xml b/termux-app/app/src/main/res/layout/activity_termux.xml
+index b6cc59e968..863534a3c2 100644
+--- a/termux-app/app/src/main/res/layout/activity_termux.xml
++++ b/termux-app/app/src/main/res/layout/activity_termux.xml
+@@ -65,7 +65,7 @@
+                     android:layout_height="0dp"
+                     android:layout_gravity="top"
+                     android:layout_weight="1"
+-                    android:choiceMode="singleChoice"
++                    android:choiceMode="none"
+                     android:longClickable="true" />
+ 
+                 <LinearLayout
+diff --git a/termux-app/app/src/main/res/values/strings.xml b/termux-app/app/src/main/res/values/strings.xml
+index 57d564e687..2bfba5a505 100644
+--- a/termux-app/app/src/main/res/values/strings.xml
++++ b/termux-app/app/src/main/res/values/strings.xml
+@@ -47,6 +47,7 @@
+     <string name="action_new_session_failsafe">Failsafe</string>
+     <string name="title_max_terminals_reached">Max terminals reached</string>
+     <string name="msg_max_terminals_reached">Close down existing ones before creating new.</string>
++    <string name="msg_failed_to_focus_window">Failed to focus window</string>
+ 
+     <string name="title_rename_session">Set session name</string>
+     <string name="action_rename_session_confirm">Set</string>
+From 071676c7122bfce26e604ecfdafdf2ee71ca5f21 Mon Sep 17 00:00:00 2001
+From: ozwaldorf <self@ossian.dev>
+Date: Fri, 13 Feb 2026 00:00:40 -0500
+Subject: [PATCH] feat: focus attached activity for session keyboard shortcuts
+
+---
+ .../TermuxTerminalSessionActivityClient.java     | 16 ++++++++++------
+ 1 file changed, 10 insertions(+), 6 deletions(-)
+
+diff --git a/termux-app/app/src/main/java/com/termux/app/terminal/TermuxTerminalSessionActivityClient.java b/termux-app/app/src/main/java/com/termux/app/terminal/TermuxTerminalSessionActivityClient.java
+index a2a47733aa..a856725555 100644
+--- a/termux-app/app/src/main/java/com/termux/app/terminal/TermuxTerminalSessionActivityClient.java
++++ b/termux-app/app/src/main/java/com/termux/app/terminal/TermuxTerminalSessionActivityClient.java
+@@ -345,7 +345,7 @@ public void switchToSession(boolean forward) {
+         int size = service.getTermuxSessionsSize();
+         int activityId = mActivity.getActivityId();
+ 
+-        // Find the next unattached session in the given direction
++        // Find the next session in the given direction
+         int index = currentIndex;
+         for (int i = 0; i < size; i++) {
+             if (forward) {
+@@ -357,11 +357,13 @@ public void switchToSession(boolean forward) {
+             TermuxSession termuxSession = service.getTermuxSession(index);
+             if (termuxSession != null) {
+                 TerminalSession session = termuxSession.getTerminalSession();
+-                // Skip sessions attached to other windows, but allow switching to current session
+-                if (!service.isSessionAttachedToOther(session, activityId)) {
++                if (service.isSessionAttachedToOther(session, activityId)) {
++                    // Session is attached to another window - focus that window
++                    service.focusActivityForSession(session);
++                } else {
+                     setCurrentSession(session);
+-                    return;
+                 }
++                return;
+             }
+         }
+     }
+@@ -373,8 +375,10 @@ public void switchToSession(int index) {
+         TermuxSession termuxSession = service.getTermuxSession(index);
+         if (termuxSession != null) {
+             TerminalSession session = termuxSession.getTerminalSession();
+-            // Only switch if the session is not attached to another window
+-            if (!service.isSessionAttachedToOther(session, mActivity.getActivityId())) {
++            if (service.isSessionAttachedToOther(session, mActivity.getActivityId())) {
++                // Session is attached to another window - focus that window
++                service.focusActivityForSession(session);
++            } else {
+                 setCurrentSession(session);
+             }
+         }
