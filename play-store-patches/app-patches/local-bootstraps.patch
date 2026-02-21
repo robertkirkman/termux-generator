@@ -1,22 +1,5 @@
 --- a/termux-app/build.gradle.kts
 +++ b/termux-app/build.gradle.kts
-@@ -37,16 +37,6 @@ android {
-         minSdk = minSdkVersion.toInt()
-         targetSdk = targetSdkVersion.toInt()
-         compileSdk = compileSdkVersion.toInt()
--
--        ndk {
--            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
--        }
--
--        externalNativeBuild {
--            ndkBuild {
--                cFlags += listOf("-std=c11", "-Wall", "-Wextra", "-Werror", "-Os", "-fno-stack-protector", "-Wl,--gc-sections")
--            }
--        }
-     }
- 
-     signingConfigs {
 @@ -79,12 +69,6 @@ android {
          targetCompatibility = JavaVersion.VERSION_11
      }
