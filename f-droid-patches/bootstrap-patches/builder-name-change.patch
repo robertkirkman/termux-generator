@@ -26,3 +26,14 @@
  
  if [ -z "$APPARMOR_PARSER" ] || ! $SUDO aa-status --enabled; then
  	echo "WARNING: apparmor_parser not found, AppArmor profiles will not be loaded!"
+--- a/scripts/free-space.sh
++++ b/scripts/free-space.sh
+@@ -16,7 +16,7 @@ else
+ 		dpkg -l |
+ 			grep '^ii' |
+ 			awk '{ print $2 }' |
+-			grep -P '(mecab|linux-azure-tools-|aspnetcore|liblldb-|netstandard-|llvm|clang|gcc-12|gcc-13|cpp-|g\+\+-|temurin-|gfortran-|mysql-|google-cloud-cli|postgresql-|cabal-|dotnet-|ghc-|mongodb-|libmono|temurin-|mesa-|ant|liblua|python3|grub2-|grub-|shim-signed)'
++			grep -P '(mecab|linux-azure-tools-|aspnetcore|liblldb-|netstandard-|llvm|clang|gcc-12|gcc-13|cpp-|g\+\+-|temurin-|gfortran-|mysql-|google-cloud-cli|postgresql-|cabal-|dotnet-|ghc-|mongodb-|libmono|mesa-|ant|liblua|python3|grub2-|grub-|shim-signed)'
+ 	)
+ 
+ 	sudo apt purge -yq \
