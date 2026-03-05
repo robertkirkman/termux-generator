@@ -197,16 +197,11 @@ build_bootstraps() {
 
     bootstrap_script_args+=" --architectures $bootstrap_architectures"
 
-    if [[ "${CI-}" != "true" ]]; then
-        scripts/run-docker.sh "scripts/$bootstrap_script" $bootstrap_script_args
-    else
-        scripts/setup-ubuntu.sh
-        scripts/setup-android-sdk.sh
+    if [[ "${CI-}" == "true" ]]; then
         scripts/free-space.sh
-        rm -f "${HOME}"/lib/ndk-*.zip "${HOME}"/lib/sdk-*.zip
-        sed -i "s|/home/builder/termux-packages|$(pwd)|g" "scripts/$bootstrap_script"
-        "scripts/$bootstrap_script" $bootstrap_script_args
     fi
+
+    scripts/run-docker.sh "scripts/$bootstrap_script" $bootstrap_script_args
 
     popd
 }

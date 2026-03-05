@@ -3,7 +3,6 @@ name: Generate Termux application
 env:
   ANDROID_HOME: /home/runner/lib/android-sdk-9123335/
   ANDROID_NDK_ROOT: /home/runner/lib/android-ndk-r29/
-  CLEAN_DOCKER_IMAGES: true
 
 on:
   workflow_dispatch:
