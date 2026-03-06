@@ -1,9 +1,5 @@
 name: Generate Termux application
 
-env:
-  ANDROID_HOME: /home/runner/lib/android-sdk-9123335/
-  ANDROID_NDK_ROOT: /home/runner/lib/android-ndk-r29/
-
 on:
   workflow_dispatch:
     inputs:

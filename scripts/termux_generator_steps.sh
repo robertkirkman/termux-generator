@@ -197,9 +197,13 @@ build_bootstraps() {
 
     bootstrap_script_args+=" --architectures $bootstrap_architectures"
 
+    echo "ANDROID_HOME: $ANDROID_HOME"
+    ls "$ANDROID_HOME"
     if [[ "${CI-}" == "true" ]]; then
         scripts/free-space.sh
     fi
+    echo "ANDROID_HOME: $ANDROID_HOME"
+    ls "$ANDROID_HOME"
 
     scripts/run-docker.sh "scripts/$bootstrap_script" $bootstrap_script_args
 
