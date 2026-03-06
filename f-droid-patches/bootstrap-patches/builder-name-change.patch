@@ -37,3 +37,14 @@
  	)
  
  	sudo apt purge -yq \
+@@ -41,7 +41,10 @@ else
+ 	sudo rm -rf /opt/ghc /opt/az /opt/hostedtoolcache /opt/actionarchivecache /opt/runner-cache
+ 	sudo rm -rf /opt/pipx /usr/share/dotnet /usr/share/swift /usr/share/miniconda /usr/share/az_* /usr/share/gradle-* /usr/share/java /home/runner/.rustup
+ 	sudo rm -rf /etc/skel /home/packer /home/linuxbrew
++	sudo mv /usr/local/lib/android "$HOME"
+ 	sudo rm -rf /usr/local /usr/src/
++	sudo mkdir -p /usr/local/lib
++	sudo mv "$HOME/android" /usr/local/lib/
+ 
+ 	# https://github.com/actions/runner-images/issues/709#issuecomment-612569242
+ 	sudo rm -rf "$AGENT_TOOLSDIRECTORY"
