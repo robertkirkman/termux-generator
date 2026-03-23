@@ -1,11 +1,50 @@
 --- a/scripts/run-docker.sh
 +++ b/scripts/run-docker.sh
-@@ -24,7 +24,7 @@ else
- fi
+@@ -3,7 +3,7 @@ set -e -u
  
+ TERMUX_SCRIPTDIR=$(cd "$(realpath "$(dirname "$0")")"; cd ..; pwd)
  : ${TERMUX_BUILDER_IMAGE_NAME:=ghcr.io/termux-play-store/package-builder}
 -: ${CONTAINER_NAME:=termux-package-builder}
 +: ${CONTAINER_NAME:=termux-generator-package-builder}
+ : ${TERMUX_DOCKER_RUN_EXTRA_ARGS:=}
+ : ${TERMUX_DOCKER_EXEC_EXTRA_ARGS:=}
+ BUILDSCRIPT_NAME=build-package.sh
+@@ -96,7 +96,7 @@ if [ "$UNAME" = Darwin ]; then
+ 	SEC_OPT=""
+ else
+ 	REPOROOT="$(dirname $(readlink -f $0))/../"
+-	SEC_OPT=" --security-opt seccomp=$REPOROOT/scripts/profile.json --security-opt apparmor=_custom-termux-package-builder-$CONTAINER_NAME --cap-add CAP_SYS_ADMIN --device /dev/fuse"
++	SEC_OPT=" --privileged --security-opt seccomp=unconfined --cap-add CAP_SYS_ADMIN --device /dev/fuse"
+ fi
  
- USER=builder
+ if [ "${CI:-}" = "true" ]; then
+@@ -131,6 +131,7 @@ APPARMOR_PARSER=""
+ if command -v apparmor_parser > /dev/null; then
+ 	APPARMOR_PARSER="apparmor_parser"
+ fi
++APPARMOR_PARSER=""
  
+ if [ -z "$APPARMOR_PARSER" ] || ! $SUDO aa-status --enabled; then
+ 	echo "WARNING: apparmor_parser not found, AppArmor profiles will not be loaded!"
+--- a/scripts/free-space.sh
++++ b/scripts/free-space.sh
+@@ -16,7 +16,7 @@ else
+ 		dpkg -l |
+ 			grep '^ii' |
+ 			awk '{ print $2 }' |
+-			grep -P '(mecab|linux-azure-tools-|aspnetcore|liblldb-|netstandard-|llvm|clang|gcc-12|gcc-13|cpp-|g\+\+-|temurin-|gfortran-|mysql-|google-cloud-cli|postgresql-|cabal-|dotnet-|ghc-|mongodb-|libmono|mesa-|ant|liblua|python3|grub2-|grub-|shim-signed)'
++			grep -P '(mecab|linux-azure-tools-|aspnetcore|liblldb-|netstandard-|llvm|clang|gcc-12|gcc-13|cpp-|g\+\+-|gfortran-|mysql-|google-cloud-cli|postgresql-|cabal-|dotnet-|ghc-|mongodb-|libmono|mesa-|ant|liblua|python3|grub2-|grub-|shim-signed)'
+ 	)
+ 
+ 	sudo apt purge -yq \
+@@ -41,7 +41,10 @@ else
+ 	sudo rm -rf /opt/ghc /opt/az /opt/hostedtoolcache /opt/actionarchivecache /opt/runner-cache
+ 	sudo rm -rf /opt/pipx /usr/share/dotnet /usr/share/swift /usr/share/miniconda /usr/share/az_* /usr/share/gradle-* /usr/share/java /home/runner/.rustup
+ 	sudo rm -rf /etc/skel /home/packer /home/linuxbrew
++	sudo mv /usr/local/lib/android "$HOME"
+ 	sudo rm -rf /usr/local /usr/src/
++	sudo mkdir -p /usr/local/lib
++	sudo mv "$HOME/android" /usr/local/lib/
+ 
+ 	# https://github.com/actions/runner-images/issues/709#issuecomment-612569242
+ 	sudo rm -rf "$AGENT_TOOLSDIRECTORY"
