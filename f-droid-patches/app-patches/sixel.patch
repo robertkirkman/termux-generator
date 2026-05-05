@@ -1,7 +1,7 @@
 From 18495cd1bc1c7c4f9f7e1ae6bcd39c74254adbb8 Mon Sep 17 00:00:00 2001
 From: Matan Ziv-Av <matan@svgalib.org>
 Date: Sat, 3 Sep 2022 13:58:33 +0300
-Subject: [PATCH 01/10] Fixed: Clear LineWrap flag when clearing lines using
+Subject: [PATCH 01/11] Fixed: Clear LineWrap flag when clearing lines using
  blockSet
 
 ---
@@ -31,7 +31,7 @@ index 21d6518785..796afa0ba4 100644
 From 439b0b693f7c2ce90677326c31724763f1ce3e13 Mon Sep 17 00:00:00 2001
 From: agnostic-apollo <agnosticapollo@gmail.com>
 Date: Tue, 31 Mar 2026 00:40:38 +0500
-Subject: [PATCH 02/10] Fixed: Revert using `Canvas.drawText()` instead of
+Subject: [PATCH 02/11] Fixed: Revert using `Canvas.drawText()` instead of
  `Canvas.drawTextRun` only on Android 5 as later function is not available on
  it and will cause a runtime crash
 
@@ -69,7 +69,7 @@ index a4bef7d37c..5d29687fb3 100644
 From bdc3d72f8faa40a4acd7d2153fb8a1c1ebfdff2b Mon Sep 17 00:00:00 2001
 From: agnostic-apollo <agnosticapollo@gmail.com>
 Date: Tue, 31 Mar 2026 00:53:26 +0500
-Subject: [PATCH 03/10] Fixed: Explicitly cast cursor dimensions to float to
+Subject: [PATCH 03/11] Fixed: Explicitly cast cursor dimensions to float to
  prevent loses
 
 ---
@@ -95,7 +95,7 @@ index 5d29687fb3..214df331b3 100644
 From 4748e230accd7f94e462c61151f2a4aa8f826bd1 Mon Sep 17 00:00:00 2001
 From: agnostic-apollo <agnosticapollo@gmail.com>
 Date: Tue, 31 Mar 2026 22:27:47 +0500
-Subject: [PATCH 04/10] Changed: Use `int` instead of `short` for space used
+Subject: [PATCH 04/11] Changed: Use `int` instead of `short` for space used
  for proper indexing
 
 ---
@@ -137,7 +137,7 @@ index d68dc32623..8d7e6bab20 100644
 From 7461709a832216b5aaecae86e273a959d6b9c58f Mon Sep 17 00:00:00 2001
 From: agnostic-apollo <agnosticapollo@gmail.com>
 Date: Thu, 9 Apr 2026 15:35:23 +0500
-Subject: [PATCH 05/10] Fixed|Changed: Explicitly pass `Base64.DEFAULT` while
+Subject: [PATCH 05/11] Fixed|Changed: Explicitly pass `Base64.DEFAULT` while
  base64 decoding text received for setting to clipboard from terminal and fix
  error format typo
 
@@ -166,7 +166,7 @@ index b0be6f3440..d4023228c3 100644
 From 948ffa41c87c4074ffc81eb3da99c37b9715c83d Mon Sep 17 00:00:00 2001
 From: agnostic-apollo <agnosticapollo@gmail.com>
 Date: Thu, 9 Apr 2026 03:19:07 +0500
-Subject: [PATCH 06/10] Added|Changed|Fixed: Standardize function/variable
+Subject: [PATCH 06/11] Added|Changed|Fixed: Standardize function/variable
  names and add docs for OSC/DCS/APC in `TerminalEmulator`, add support for
  fast path for OSC/DCS terminal commands, and properly clear buffer after
  commands
@@ -866,7 +866,7 @@ index d4023228c3..0eefd5d01e 100644
 From a7f2872c6ce93cdc1a10e5e5ca2aad9030b78f8d Mon Sep 17 00:00:00 2001
 From: Matan Ziv-Av <matan@svgalib.org>
 Date: Thu, 9 Apr 2026 03:39:44 +0500
-Subject: [PATCH 07/10] Add sixel support:
+Subject: [PATCH 07/11] Add sixel support:
 
 - In TerminalEmulator, interpret sixel sequences, and send them to
   TerminalBuffer for constructing a bitmap.
@@ -1866,10 +1866,10 @@ index 214df331b3..2be86f17fa 100644
                      } else {
                          final int columnWidthSinceLastRun = column - lastRunStartColumn;
 
-From d566f4141c764b74e252852e01d7476e2c288db4 Mon Sep 17 00:00:00 2001
+From 69ce502d8b17d6103f2cd6276dfe21ba9d1d9778 Mon Sep 17 00:00:00 2001
 From: agnostic-apollo <agnosticapollo@gmail.com>
 Date: Thu, 9 Apr 2026 15:41:29 +0500
-Subject: [PATCH 08/10] Added: Add terminal support for Bitmaps, Sixel (`DCS
+Subject: [PATCH 08/11] Added: Add terminal support for Bitmaps, Sixel (`DCS
  q`) and iTerm Image (`OSC 1337`)
 
 Support for displaying bitmaps inside the terminal has been added via `TerminalBitmap` which can be created from image `byte[]` or sixel bitmap. The bitmaps are sliced to character cell sized slices. The `TerminalBuffer` stores a map for bitmap number to the `TerminalBitmap` loaded in the terminal. The bitmap number and coordinates are encoded in the `long` `TerminalRow.mStyle` for the `TerminalRow` character of a column by `TerminalBitmap#buildOrThrow()` by getting encoded value from `TextStyle.encodeTerminalBitmap()`. The `TerminalRenderer.render()` then checks during rendering terminal output whether a character at a row/coloumn index is a bitmap instead of text by calling `TextStyle.isTerminalBitmap()`, then draws it using `Canvas.drawBitmap()` instead of `Canvas.drawText()`.
@@ -1906,15 +1906,15 @@ See Also:
 - https://github.com/gnachman/iTerm2-shell-integration/blob/d1d4012068c3c6761d5676c28ed73e0e2df2b715/utilities/imgcat
 ---
  .../java/com/termux/terminal/ITermImage.java  | 399 +++++++++
- .../com/termux/terminal/TerminalBitmap.java   | 447 +++++++----
+ .../com/termux/terminal/TerminalBitmap.java   | 458 +++++++----
  .../com/termux/terminal/TerminalBuffer.java   | 304 +++++--
- .../com/termux/terminal/TerminalEmulator.java | 759 ++++++++++++------
+ .../com/termux/terminal/TerminalEmulator.java | 761 ++++++++++++------
  .../java/com/termux/terminal/TerminalRow.java |  10 +-
  .../com/termux/terminal/TerminalSixel.java    | 289 +++++++
  .../java/com/termux/terminal/TextStyle.java   |  30 +-
  .../terminal/WorkingTerminalBitmap.java       | 110 ---
  .../com/termux/view/TerminalRenderer.java     |  12 +-
- 9 files changed, 1763 insertions(+), 597 deletions(-)
+ 9 files changed, 1775 insertions(+), 598 deletions(-)
  create mode 100644 terminal-emulator/src/main/java/com/termux/terminal/ITermImage.java
  create mode 100644 terminal-emulator/src/main/java/com/termux/terminal/TerminalSixel.java
  delete mode 100644 terminal-emulator/src/main/java/com/termux/terminal/WorkingTerminalBitmap.java
@@ -2325,10 +2325,10 @@ index 0000000000..b8da113c6d
 +
 +}
 diff --git a/terminal-emulator/src/main/java/com/termux/terminal/TerminalBitmap.java b/terminal-emulator/src/main/java/com/termux/terminal/TerminalBitmap.java
-index 9758705bdc..a744302493 100644
+index 9758705bdc..38eccad1f8 100644
 --- a/termux-app/terminal-emulator/src/main/java/com/termux/terminal/TerminalBitmap.java
 +++ b/termux-app/terminal-emulator/src/main/java/com/termux/terminal/TerminalBitmap.java
-@@ -1,187 +1,342 @@
+@@ -1,187 +1,353 @@
  package com.termux.terminal;
  
 -import java.util.Arrays;
@@ -2391,6 +2391,32 @@ index 9758705bdc..a744302493 100644
 +
 +        mScrollLines = scrollLines;
 +        mCursorDelta = cursorDelta;
++    }
++
++
++
++    /** Build a {@link TerminalBitmap} from a {@link TerminalSixel}. */
++    public static TerminalBitmap build(TerminalBuffer terminalBuffer, int bitmapNum, TerminalSixel terminalSixel,
++                                       int x, int y, int cellWidth, int cellHeight) {
++        try {
++            Bitmap bitmap = terminalSixel.getBitmap();
++            bitmap = resizeBitmapConstrained(LOG_TAG, "sixel", terminalBuffer.getClient(), bitmap,
++                terminalSixel.getWidth(), terminalSixel.getHeight(), cellWidth, cellHeight,
++                terminalBuffer.mColumns - x);
++            if (bitmap == null) {
++                Logger.logError(terminalBuffer.getClient(), LOG_TAG,
++                    "Create terminal bitmap " + bitmapNum + " from terminal sixel failed");
++                return null;
++            }
++
++            return buildOrThrow(terminalBuffer, bitmapNum, bitmap,
++                x, y, cellWidth, cellHeight);
++        } catch (Throwable t) {
++            if (t instanceof OutOfMemoryError) System.gc();
++            Logger.logError(terminalBuffer.getClient(), LOG_TAG,
++                "Create terminal bitmap " + bitmapNum + " from terminal sixel failed: " + t.getMessage());
++            return null;
++        }
      }
  
 -    public TerminalBitmap(int num, byte[] image, int Y, int X, int cellW, int cellH, int width, int height, boolean aspect, TerminalBuffer screen) {
@@ -2407,39 +2433,6 @@ index 9758705bdc..a744302493 100644
 -            } catch (Exception e) {
 -                Logger.logWarn(null, LOG_TAG, "Cannot decode image");
 +
-+
-+    /** Build a {@link TerminalBitmap} from a {@link TerminalSixel}. */
-+    public static TerminalBitmap build(TerminalBuffer terminalBuffer, int bitmapNum, TerminalSixel terminalSixel,
-+                                       int x, int y, int cellWidth, int cellHeight) {
-+        try {
-+            Bitmap bitmap = terminalSixel.getBitmap();
-+            bitmap = resizeBitmapConstrained(LOG_TAG, "sixel", terminalBuffer.getClient(), bitmap,
-+                terminalSixel.getWidth(), terminalSixel.getHeight(), cellWidth, cellHeight,
-+                terminalBuffer.mColumns - x);
-+            if (bitmap == null) {
-+                Logger.logError(terminalBuffer.getClient(), LOG_TAG,
-+                    "Create terminal bitmap " + bitmapNum + " from terminal sixel failed");
-+                return null;
-             }
--            imageHeight = options.outHeight;
--            imageWidth = options.outWidth;
--            if (aspect) {
--                double wFactor = 9999.0;
--                double hFactor = 9999.0;
--                if (width > 0) {
--                    wFactor = (double)width / imageWidth;
-+
-+            return buildOrThrow(terminalBuffer, bitmapNum, bitmap,
-+                x, y, cellWidth, cellHeight);
-+        } catch (Throwable t) {
-+            if (t instanceof OutOfMemoryError) System.gc();
-+            Logger.logError(terminalBuffer.getClient(), LOG_TAG,
-+                "Create terminal bitmap " + bitmapNum + " from terminal sixel failed: " + t.getMessage());
-+            return null;
-+        }
-+    }
-+
-+
 +    /** Build a {@link TerminalBitmap} from an image `byte[]`. */
 +    public static TerminalBitmap build(TerminalBuffer terminalBuffer, int bitmapNum, byte[] image,
 +                                       int x, int y, int cellWidth, int cellHeight,
@@ -2450,6 +2443,20 @@ index 9758705bdc..a744302493 100644
 +            int imageWidth;
 +            int newWidth = width;
 +            int newHeight = height;
++
++            if (image == null) {
++                Logger.logError(terminalBuffer.getClient(), LOG_TAG,
++                    "Create terminal bitmap " + bitmapNum + " from image byte array failed:" +
++                        " Image data not set");
++                return null;
+             }
+-            imageHeight = options.outHeight;
+-            imageWidth = options.outWidth;
+-            if (aspect) {
+-                double wFactor = 9999.0;
+-                double hFactor = 9999.0;
+-                if (width > 0) {
+-                    wFactor = (double)width / imageWidth;
 +
 +            if (height > 0 || width > 0) {
 +                // Get image dimensions without creating a bitmap.
@@ -2499,28 +2506,26 @@ index 9758705bdc..a744302493 100644
 +                int scaleFactor = 1;
 +                while (imageHeight >= 2 * newHeight * scaleFactor && imageWidth >= 2 * newWidth * scaleFactor) {
 +                    scaleFactor = scaleFactor * 2;
-+                }
+                 }
+-                if (width <= 0) {
+-                    newWidth = imageWidth;
 +
 +
 +                // Create bitmap from image.
-+                BitmapFactory.Options scaleOptions = new BitmapFactory.Options();
-+                // Subsample the original image to get a smaller image to save memory.
-+                scaleOptions.inSampleSize = scaleFactor;
 +                try {
-+                    newBitmap = BitmapFactory.decodeByteArray(image, 0, image.length, scaleOptions);
++                    if (scaleFactor > 1) {
++                        // Subsample the original image to get a smaller image to save memory.
++                        BitmapFactory.Options scaleOptions = new BitmapFactory.Options();
++                        scaleOptions.inSampleSize = scaleFactor;
++                        newBitmap = BitmapFactory.decodeByteArray(image, 0, image.length, scaleOptions);
++                    } else {
++                        newBitmap = BitmapFactory.decodeByteArray(image, 0, image.length);
++                    }
 +                } catch (Throwable t) {
 +                    if (t instanceof OutOfMemoryError) System.gc();
 +                    Logger.logError(terminalBuffer.getClient(), LOG_TAG,
 +                        "Create terminal bitmap " + bitmapNum + " from image byte array failed:" +
-+                            " Decode scaled bitmap failed: " + t.getMessage());
-+                    return null;
-                 }
--                if (width <= 0) {
--                    newWidth = imageWidth;
-+                if (newBitmap == null) {
-+                    Logger.logError(terminalBuffer.getClient(), LOG_TAG,
-+                        "Create terminal bitmap " + bitmapNum + " from image byte array failed:" +
-+                            " Decoded scaled bitmap not set");
++                            " Decode scaled bitmap for scale factor " + scaleFactor + " failed: " + t.getMessage());
 +                    return null;
                  }
 -            }
@@ -2545,6 +2550,12 @@ index 9758705bdc..a744302493 100644
 -            int maxWidth = (screen.mColumns - X) * cellW;
 -            if (newWidth > maxWidth) {
 -                int cropWidth = bm.getWidth() * maxWidth / newWidth;
++                if (newBitmap == null) {
++                    Logger.logError(terminalBuffer.getClient(), LOG_TAG,
++                        "Create terminal bitmap " + bitmapNum + " from image byte array failed:" +
++                            " Decoded scaled bitmap not set for scale factor " + scaleFactor);
++                    return null;
++                }
 +
 +
 +                // Crop the bitmap if it exceeds terminal bounds.
@@ -2566,12 +2577,7 @@ index 9758705bdc..a744302493 100644
 +
 +
 +                // Create final scaled bitmap.
-                 try {
--                    bm = Bitmap.createBitmap(bm, 0, 0, cropWidth, bm.getHeight());
--                    newWidth = maxWidth;
--                } catch(OutOfMemoryError e) {
--                    // This is just a memory optimization. If it fails,
--                    // continue (and probably fail later).
++                try {
 +                    newBitmap = Bitmap.createScaledBitmap(newBitmap, newWidth, newHeight, true);
 +                } catch (Throwable t) {
 +                    if (t instanceof OutOfMemoryError) System.gc();
@@ -2582,7 +2588,12 @@ index 9758705bdc..a744302493 100644
 +                }
 +            } else {
 +                // Create bitmap from image.
-+                try {
+                 try {
+-                    bm = Bitmap.createBitmap(bm, 0, 0, cropWidth, bm.getHeight());
+-                    newWidth = maxWidth;
+-                } catch(OutOfMemoryError e) {
+-                    // This is just a memory optimization. If it fails,
+-                    // continue (and probably fail later).
 +                    newBitmap = BitmapFactory.decodeByteArray(image, 0, image.length);
 +                } catch (Throwable t) {
 +                    if (t instanceof OutOfMemoryError) System.gc();
@@ -2635,11 +2646,11 @@ index 9758705bdc..a744302493 100644
 +            return null;
          }
 +    }
-+
  
 -        bm = resizeBitmapConstraints(bm, bm.getWidth(), bm.getHeight(), cellW, cellH, screen.mColumns - X);
 -        addBitmap(num, bm, Y, X, cellW, cellH, screen);
 -        cursorDelta  = new int[] {scrollLines, (bitmap.getWidth() + cellW - 1) / cellW};
++
 +    /** Build a {@link TerminalBitmap} from a {@link Bitmap}. */
 +    public static TerminalBitmap build(TerminalBuffer terminalBuffer, int bitmapNum, Bitmap bitmap,
 +                                       int x, int y, int cellWidth, int cellHeight) {
@@ -2714,7 +2725,7 @@ index 9758705bdc..a744302493 100644
 +
 +    public TerminalSessionClient getClient() {
 +        return mClient;
-+    }
+     }
 +
 +
 +    public int getBitmapNum() {
@@ -2746,7 +2757,7 @@ index 9758705bdc..a744302493 100644
 +
 +    public void setCursorDelta(int[] cursorDelta) {
 +        mCursorDelta = cursorDelta;
-     }
++    }
 +
 +
 +
@@ -3218,7 +3229,7 @@ index 8e8620d393..fea81faf41 100644
 +
  }
 diff --git a/terminal-emulator/src/main/java/com/termux/terminal/TerminalEmulator.java b/terminal-emulator/src/main/java/com/termux/terminal/TerminalEmulator.java
-index 1fe43023bc..c6a6cfec6f 100644
+index 1fe43023bc..64473e019f 100644
 --- a/termux-app/terminal-emulator/src/main/java/com/termux/terminal/TerminalEmulator.java
 +++ b/termux-app/terminal-emulator/src/main/java/com/termux/terminal/TerminalEmulator.java
 @@ -3,7 +3,6 @@
@@ -3384,9 +3395,10 @@ index 1fe43023bc..c6a6cfec6f 100644
 -
          if (
              // End of DCS if string terminator ST `ESC \` received.
-             (ESC_DCS__ESC && b == '\\')
+-            (ESC_DCS__ESC && b == '\\')
 -            // Sixel sequences may be very long. '$' and '!' are natural for breaking the sequence.
 -            || firstSixel || (ESC_DCS_sixel && (b=='$' || b=='-' || b=='#'))
++            (ESC_DCS__ESC && b == '\\') ||
 +            // If sixel continuation after sixel start and a
 +            // Color Introducer `#`, Graphics Repeat Introducer `!` or Raster Attributes `"`
 +            // command is received, then process any previous commands, or if end of input
@@ -3405,8 +3417,8 @@ index 1fe43023bc..c6a6cfec6f 100644
 +            // and also resize the bitmap, so that memory allocations are avoided if possible.
 +            // `mTerminalControlArgs.length() > 1` is done so that loop does not engage on first
 +            // character after `q` and only after first command has been fully received.
-+            || (ESC_DCS__SIXEL && ((b == '#' || b == '!' || b == '"') &&
-+                    ((mTerminalControlArgs.length() >= (TERMINAL_CONTROL_ARGS__MAX_LENGTH / 2)) || (mTerminalControlArgs.length() > 1 && mSixelCommandPartNum == 1))))
++            (ESC_DCS__SIXEL && ((b == '#' || b == '!' || b == '"') &&
++                ((mTerminalControlArgs.length() >= (TERMINAL_CONTROL_ARGS__MAX_LENGTH / 2)) || (mTerminalControlArgs.length() > 1 && mSixelCommandPartNum == 1))))
          ) {
                  String dcs = mTerminalControlArgs.toString();
  
@@ -3554,9 +3566,10 @@ index 1fe43023bc..c6a6cfec6f 100644
 +                    // Check if `DCS q` or `DCS P1; P2; P3; q` received from Sixel
 +                    // Device Control String `DCS q s..s ST` or `DCS P1; P2; P3; q s..s ST` command.
 +                    // If received, then wait for more input after `q`.
-+                    char ch = mTerminalControlArgs.charAt(0);
-+                    if (ch == 'q' || (ch >= '0' && ch <= '9')) {
++                    if (b == 'q') {
 +                        startIfSixelDcs();
++                    } else if (b == ';' || (b >= '0' && b <= '9')) {
++                        // Ignore.
 +                    } else {
 +                        ESC_DCS__CHECK_IF_SIXEL = false;
 +                    }
@@ -3573,14 +3586,13 @@ index 1fe43023bc..c6a6cfec6f 100644
 +        mSixelCommandPartNum = 0;
 +        mSixelArgsCapacity = null;
 +        mScreen.sixelClear();
-     }
- 
++    }
++
 +
 +
 +    private void startIfSixelDcs() {
 +        int[] sixelDcsSetupArgs = getSixelDcsSetupArgs(mTerminalControlArgs.toString(), 0);
 +        if (sixelDcsSetupArgs != null) {
-+
 +            mIsFastPathDcs = true;
 +            ESC_DCS__SIXEL = true;
 +            ESC_DCS__CHECK_IF_SIXEL = false;
@@ -3849,8 +3861,8 @@ index 1fe43023bc..c6a6cfec6f 100644
 +        }
 +        
 +        return isValidDcs;
-+    }
-+
+     }
+ 
 +
 +
      private int nextTabStop(int numTabs) {
@@ -4693,10 +4705,10 @@ index 2be86f17fa..787902ce08 100644
                      column += 1;
                      measuredWidthForRun = 0.f;
 
-From 5743c5dee233ddec4e1dc6fc1ebaa752e7105b49 Mon Sep 17 00:00:00 2001
+From 3ec521f6046688c280a2a3c50763b5b19823a78e Mon Sep 17 00:00:00 2001
 From: agnostic-apollo <agnosticapollo@gmail.com>
 Date: Tue, 14 Apr 2026 01:17:12 +0500
-Subject: [PATCH 09/10] Changed: Increase Sixel and iTerm Image limits
+Subject: [PATCH 09/11] Changed: Increase Sixel and iTerm Image limits
 
 The `TerminalBitmap.MAX_BITMAP_SIZE` defines the max size of a Terminal bitmap for its pixels. Each pixel is stored on 4 bytes for a `Bitmap.Config.ARGB_8888` bitmap color config. The value should normally be between `100-200MB` depending on device and Android version. Check the variable docs for more info.
 
@@ -4704,12 +4716,12 @@ The sixel image size cannot be greater than `TerminalBitmap.MAX_BITMAP_SIZE`. Th
 
 The iTerm image data sent for `File=` and `MultipartFile=` protocols cannot be greater than `TerminalBitmap.MAX_BITMAP_SIZE` bytes.
 ---
- .../com/termux/terminal/AndroidUtils.java     |  65 ++++++++++
- .../com/termux/terminal/TerminalBitmap.java   | 122 +++++++++++++++++-
+ .../com/termux/terminal/AndroidUtils.java     |  65 +++++++++
+ .../com/termux/terminal/TerminalBitmap.java   | 124 +++++++++++++++++-
  .../com/termux/terminal/TerminalBuffer.java   |  16 ++-
- .../com/termux/terminal/TerminalEmulator.java | 120 ++++++++++++-----
+ .../com/termux/terminal/TerminalEmulator.java | 124 +++++++++++++-----
  .../com/termux/terminal/TerminalSixel.java    |  52 +++-----
- 5 files changed, 306 insertions(+), 69 deletions(-)
+ 5 files changed, 310 insertions(+), 71 deletions(-)
  create mode 100644 terminal-emulator/src/main/java/com/termux/terminal/AndroidUtils.java
 
 diff --git a/terminal-emulator/src/main/java/com/termux/terminal/AndroidUtils.java b/terminal-emulator/src/main/java/com/termux/terminal/AndroidUtils.java
@@ -4784,7 +4796,7 @@ index 0000000000..2f762c7bbc
 +
 +}
 diff --git a/terminal-emulator/src/main/java/com/termux/terminal/TerminalBitmap.java b/terminal-emulator/src/main/java/com/termux/terminal/TerminalBitmap.java
-index a744302493..0a95f33050 100644
+index 38eccad1f8..188f06bc2a 100644
 --- a/termux-app/terminal-emulator/src/main/java/com/termux/terminal/TerminalBitmap.java
 +++ b/termux-app/terminal-emulator/src/main/java/com/termux/terminal/TerminalBitmap.java
 @@ -1,7 +1,16 @@
@@ -4804,11 +4816,13 @@ index a744302493..0a95f33050 100644
  
  /**
   * A terminal bitmap for images.
-@@ -10,6 +19,110 @@ public class TerminalBitmap {
+@@ -10,6 +19,112 @@ public class TerminalBitmap {
  
      public static final String LOG_TAG = "TerminalBitmap";
  
 +    private static int initMaxBitmapSize() {
++        // Synced with `RecordingCanvas.MAX_BITMAP_SIZE`.
++        // - https://cs.android.com/android/platform/superproject/+/android-16.0.0_r1:frameworks/base/graphics/java/android/graphics/RecordingCanvas.java;l=42-50
 +        int defaultSize =
 +                Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM ?
 +                    150 * 1024 * 1024 : // 150 MB
@@ -4863,10 +4877,10 @@ index a744302493..0a95f33050 100644
 +     * By recording draw commands, they can be cached so that complex views can be efficiently
 +     * re-drawn without recalculating them again for every frame. The caching part is similar to
 +     * how a terminal behaves, where it stores all the bitmaps for rendering depending on scroll
-+     * position. So both {@link RecordingCanvas} and a terminal require similar limits on bitmap
++     * position. So both `RecordingCanvas` and a terminal require similar limits on bitmap
 +     * sizes considering memory consumption limits of apps, and multiple bitmaps being loaded
 +     * instead of a single one like for wallpapers, hence why `TerminalBitmap.MAX_BITMAP_SIZE` is
-+     * synced with  {@link RecordingCanvas}.
++     * synced with `RecordingCanvas`.
 +     * The `RecordingCanvas.MAX_BITMAP_SIZE` is set from `ro.hwui.max_texture_allocation_size`
 +     * system property if set for Android `>= 12`, otherwise `150MB` (`100MB` for Android `10-14`).
 +     * The values `>= 150MB` are enough to support `7680x4320` (8K UHD) bitmaps.
@@ -4915,7 +4929,7 @@ index a744302493..0a95f33050 100644
  
      protected final TerminalSessionClient mClient;
  
-@@ -304,8 +417,15 @@ public static Bitmap resizeBitmap(String logTag, String label, TerminalSessionCl
+@@ -315,8 +430,15 @@ public static Bitmap resizeBitmap(String logTag, String label, TerminalSessionCl
          
          Bitmap newBitmap;
          try {
@@ -4972,7 +4986,7 @@ index fea81faf41..26ce7120c5 100644
              }
          }
 diff --git a/terminal-emulator/src/main/java/com/termux/terminal/TerminalEmulator.java b/terminal-emulator/src/main/java/com/termux/terminal/TerminalEmulator.java
-index c6a6cfec6f..c7308cea2d 100644
+index 64473e019f..aada13b78f 100644
 --- a/termux-app/terminal-emulator/src/main/java/com/termux/terminal/TerminalEmulator.java
 +++ b/termux-app/terminal-emulator/src/main/java/com/termux/terminal/TerminalEmulator.java
 @@ -274,10 +274,15 @@ public final class TerminalEmulator {
@@ -4993,12 +5007,21 @@ index c6a6cfec6f..c7308cea2d 100644
  
      /** The terminal control arguments string buffer, like for OSC, DCS, APC commands. */
      private StringBuilder mTerminalControlArgs = new StringBuilder(TERMINAL_CONTROL_ARGS__INITIAL_CAPACITY);
+@@ -1145,7 +1150,7 @@ private void doDcs(final int b) {
+             // command, then it is added to buffer in code below and more input is waited for as
+             // further arguments need to be received for its command before it can be processed,
+             // which is not until the next command is received.
+-            // We wait till at least `TERMINAL_CONTROL_ARGS__MAX_LENGTH / 2` commands string has
++            // We wait till at least `mTerminalControlArgsMaxLength / 2` commands string has
+             // been received. The divide by 2 is done since if near the max length, a new command
+             // starts and it does not end before the max length, then `Terminal control args overflow
+             // error would occur.
 @@ -1156,7 +1161,7 @@ private void doDcs(final int b) {
              // `mTerminalControlArgs.length() > 1` is done so that loop does not engage on first
              // character after `q` and only after first command has been fully received.
-             || (ESC_DCS__SIXEL && ((b == '#' || b == '!' || b == '"') &&
--                    ((mTerminalControlArgs.length() >= (TERMINAL_CONTROL_ARGS__MAX_LENGTH / 2)) || (mTerminalControlArgs.length() > 1 && mSixelCommandPartNum == 1))))
-+                    ((mTerminalControlArgs.length() >= (TERMINAL_CONTROL_ARGS__DEFAULT_MAX_LENGTH / 2)) || (mTerminalControlArgs.length() > 1 && mSixelCommandPartNum == 1))))
+             (ESC_DCS__SIXEL && ((b == '#' || b == '!' || b == '"') &&
+-                ((mTerminalControlArgs.length() >= (TERMINAL_CONTROL_ARGS__MAX_LENGTH / 2)) || (mTerminalControlArgs.length() > 1 && mSixelCommandPartNum == 1))))
++                ((mTerminalControlArgs.length() >= (mTerminalControlArgsMaxLength / 2)) || (mTerminalControlArgs.length() > 1 && mSixelCommandPartNum == 1))))
          ) {
                  String dcs = mTerminalControlArgs.toString();
  
@@ -5129,12 +5152,15 @@ index c6a6cfec6f..c7308cea2d 100644
                  if (!isValidDcs) {
                      break;
                  }
-@@ -1588,7 +1626,7 @@ else if (ch == '"') {
+@@ -1586,9 +1624,9 @@ else if (ch == '"') {
+                         // 2% extra for sixel commands/parameters in addition to image data.
+                         int sixelArgsExpectedLength = (int) (sixelWidth * sixelHeight * 1.02);
                          // If sixel commands are too long, they are divided into parts, and if a
-                         // new command starts near `TERMINAL_CONTROL_ARGS__MAX_LENGTH / 2`, it could
+-                        // new command starts near `TERMINAL_CONTROL_ARGS__MAX_LENGTH / 2`, it could
++                        // new command starts near `mTerminalControlArgsMaxLength / 2`, it could
                          // contain image data for 1 pixel line of image width, so add that.
 -                        int sixelArgsPartsExpectedLength = (int) ((((double) TERMINAL_CONTROL_ARGS__MAX_LENGTH / 2) + sixelWidth) * 1.02);
-+                        int sixelArgsPartsExpectedLength = (int) ((((double) TERMINAL_CONTROL_ARGS__DEFAULT_MAX_LENGTH / 2) + sixelWidth) * 1.02);
++                        int sixelArgsPartsExpectedLength = (int) ((((double) mTerminalControlArgsMaxLength / 2) + sixelWidth) * 1.02);
                          int sixelArgsExpectedCapacity = Math.min(sixelArgsPartsExpectedLength, sixelArgsExpectedLength);
                          if (sixelArgsExpectedCapacity > SIXEL_ARGS__INITIAL_CAPACITY) {
                              mSixelArgsCapacity = sixelArgsExpectedCapacity;
@@ -5328,10 +5354,10 @@ index d7f438a1fb..fa1340b4b6 100644
  
          return true;
 
-From c1625654bef19f505d5d7a32ad0c36454b224e14 Mon Sep 17 00:00:00 2001
+From 253eee9ba5412e60911dd1c04697f9fdf7be86a6 Mon Sep 17 00:00:00 2001
 From: agnostic-apollo <agnosticapollo@gmail.com>
-Date: Tue, 14 Apr 2026 01:18:01 +0500
-Subject: [PATCH 10/10] Changed: Increase OCS 52 buffer limit to `100KB` for
+Date: Tue, 14 Apr 2026 16:05:44 +0500
+Subject: [PATCH 10/11] Changed: Increase OCS 52 buffer limit to `100KB` for
  text to set to clipboard
 
 ---
@@ -5339,7 +5365,7 @@ Subject: [PATCH 10/10] Changed: Increase OCS 52 buffer limit to `100KB` for
  1 file changed, 8 insertions(+)
 
 diff --git a/terminal-emulator/src/main/java/com/termux/terminal/TerminalEmulator.java b/terminal-emulator/src/main/java/com/termux/terminal/TerminalEmulator.java
-index c7308cea2d..3df6fae395 100644
+index aada13b78f..5c6dcdec7b 100644
 --- a/termux-app/terminal-emulator/src/main/java/com/termux/terminal/TerminalEmulator.java
 +++ b/termux-app/terminal-emulator/src/main/java/com/termux/terminal/TerminalEmulator.java
 @@ -2694,6 +2694,14 @@ void setOscTypeVariables() {
@@ -5357,3 +5383,31 @@ index c7308cea2d..3df6fae395 100644
                  case 1337: // iTerm image command sends the base64 encoded image, do not run complex logic for each byte.
                      mIsFastPathOsc = true;
                      mIgnoreCrLfForOsc = true;
+
+From 506183f18f56fac93b6c6b7f98db502ace1934ae Mon Sep 17 00:00:00 2001
+From: agnostic-apollo <agnosticapollo@gmail.com>
+Date: Wed, 6 May 2026 02:33:12 +0500
+Subject: [PATCH 11/11] Fixed: Allow sixel DCS command start `P3` arg to not
+ end with a semicolon
+
+---
+ .../src/main/java/com/termux/terminal/TerminalEmulator.java | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/terminal-emulator/src/main/java/com/termux/terminal/TerminalEmulator.java b/terminal-emulator/src/main/java/com/termux/terminal/TerminalEmulator.java
+index 5c6dcdec7b..aea420e90c 100644
+--- a/termux-app/terminal-emulator/src/main/java/com/termux/terminal/TerminalEmulator.java
++++ b/termux-app/terminal-emulator/src/main/java/com/termux/terminal/TerminalEmulator.java
+@@ -1400,6 +1400,12 @@ private int[] getSixelDcsSetupArgs(String dcs, int index) {
+                 }
+ 
+                 incArg = true;
++            } else if (ch == 'q') {
++                // If `P3` did not end with a `;`, but is followed by `q`.
++                if (arg == 2) {
++                    return args;
++                }
++                break;
+             } else {
+                 break;
+             }
