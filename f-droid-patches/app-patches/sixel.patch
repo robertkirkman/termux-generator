@@ -5384,30 +5384,28 @@ index aada13b78f..5c6dcdec7b 100644
                      mIsFastPathOsc = true;
                      mIgnoreCrLfForOsc = true;
 
-From 506183f18f56fac93b6c6b7f98db502ace1934ae Mon Sep 17 00:00:00 2001
+From 2151d08496b184980bdf89351213c7617a54e0d3 Mon Sep 17 00:00:00 2001
 From: agnostic-apollo <agnosticapollo@gmail.com>
 Date: Wed, 6 May 2026 02:33:12 +0500
-Subject: [PATCH 11/11] Fixed: Allow sixel DCS command start `P3` arg to not
- end with a semicolon
+Subject: [PATCH] Fixed: Allow sixel DCS command start `P3` arg to not end with
+ a semicolon and allow not passing all optional parameters
 
 ---
- .../src/main/java/com/termux/terminal/TerminalEmulator.java | 6 ++++++
- 1 file changed, 6 insertions(+)
+ .../src/main/java/com/termux/terminal/TerminalEmulator.java   | 4 ++++
+ 1 file changed, 4 insertions(+)
 
 diff --git a/terminal-emulator/src/main/java/com/termux/terminal/TerminalEmulator.java b/terminal-emulator/src/main/java/com/termux/terminal/TerminalEmulator.java
-index 5c6dcdec7b..aea420e90c 100644
+index 5c6dcdec7b..4595dbefd0 100644
 --- a/termux-app/terminal-emulator/src/main/java/com/termux/terminal/TerminalEmulator.java
 +++ b/termux-app/terminal-emulator/src/main/java/com/termux/terminal/TerminalEmulator.java
-@@ -1400,6 +1400,12 @@ private int[] getSixelDcsSetupArgs(String dcs, int index) {
+@@ -1400,6 +1400,10 @@ private int[] getSixelDcsSetupArgs(String dcs, int index) {
                  }
  
                  incArg = true;
 +            } else if (ch == 'q') {
-+                // If `P3` did not end with a `;`, but is followed by `q`.
-+                if (arg == 2) {
-+                    return args;
-+                }
-+                break;
++                // If optional parameters `P1`, `P2` or `P3` are not all passed, or
++                // a parameter did not end with a `;`, but is followed by `q`.
++                return args;
              } else {
                  break;
              }
