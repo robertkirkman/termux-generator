@@ -9,15 +9,6 @@
  			log "If you still want to force run it again (not recommended), \
  like in case of previous failure and it must be re-run again for testing, \
  then delete the '@TERMUX_BOOTSTRAP__BOOTSTRAP_SECOND_STAGE_DIR@/@TERMUX_BOOTSTRAP__BOOTSTRAP_SECOND_STAGE_ENTRY_POINT_SUBFILE@.lock' \
-@@ -198,6 +198,8 @@ run_package_postinst_maintainer_scripts() {
- 				maintscript_debug=1
- 			fi
- 
-+			find "${TERMUX_PREFIX}"/{bin,lib} \( -type f -o -type l \) -exec chmod +x {} \;
-+
- 			for script_path in "${TERMUX_PREFIX}/var/lib/dpkg/info/"*.postinst; do
- 				script_basename="${script_path##*/}"
- 				package_name="${script_basename::-9}"
 --- a/scripts/build-bootstraps.sh
 +++ b/scripts/build-bootstraps.sh
 @@ -29,6 +29,8 @@ BOOTSTRAP_ANDROID10_COMPATIBLE=false
@@ -144,21 +135,44 @@
  	# TODO: Remove it when Termux app supports `pacman` bootstraps installation.
  	sed -e "s|@TERMUX_PREFIX@|${TERMUX_PREFIX}|g" \
  		-e "s|@TERMUX__PREFIX__PROFILE_D_DIR@|${TERMUX__PREFIX__PROFILE_D_DIR}|g" \
-@@ -243,7 +241,13 @@ create_bootstrap_archive() {
- 			rm -f "$link"
- 		done < <(find . -type l -print0)
+@@ -234,19 +336,27 @@ add_termux_bootstrap_second_stage_files() {
+ # Information about symlinks is stored in file SYMLINKS.txt.
+ create_bootstrap_archive() {
  
+-	echo $'\n\n\n'"[*] Creating 'bootstrap-${1}.zip'..."
++	echo $'\n\n\n'"[*] Creating 'bootstrap-${1}.tar.xz'..."
+ 	(cd "${BOOTSTRAP_ROOTFS}/${TERMUX_PREFIX}"
+-		# Do not store symlinks in bootstrap archive.
+-		# Instead, put all information to SYMLINKS.txt
+-		while read -r -d '' link; do
+-			echo "$(readlink "$link")←${link}" >> SYMLINKS.txt
+-			rm -f "$link"
+-		done < <(find . -type l -print0)
+-
 -		zip -r9 "${BOOTSTRAP_TMPDIR}/bootstrap-${1}.zip" ./*
-+		# in some cases this can be approximately 4% real-world size reduction of bootstrap
-+		# compared to using zip command
-+		# I observed a real 7.6 GB bootstrap containing entirely termux packages
-+		# reduce to 7.3 GB when rezipped this way.
-+		sudo apt-get update
-+		sudo apt-get install -y p7zip-full
-+		7z a "${BOOTSTRAP_TMPDIR}/bootstrap-${1}.zip" ./* -mfb=258 -mpass=15
++		rm -rf opt/*host-tools*
++		rm -rf opt/aosp
++		rm -rf opt/binutils*
++		rm -rf opt/glib*
++		rm -rf opt/kf6*
++		rm -rf opt/libwayland*
++		rm -rf opt/qt*
++		if [[ "$TERMUX_APP_PACKAGE" == "com.retired64.termux" ]]; then
++			rm -rf share/doc
++			rm -rf share/man
++			mkdir -p share/man
++		fi
++		XZ_OPT=-e9 tar cJf "${BOOTSTRAP_TMPDIR}/bootstrap-${1}.tar.xz" ./*
  	)
  
- 	mv -f "${BOOTSTRAP_TMPDIR}/bootstrap-${1}.zip" "$TERMUX_PACKAGES_DIRECTORY/"
+-	mv -f "${BOOTSTRAP_TMPDIR}/bootstrap-${1}.zip" "$TERMUX_PACKAGES_DIRECTORY/"
++	mv -f "${BOOTSTRAP_TMPDIR}/bootstrap-${1}.tar.xz" "$TERMUX_PACKAGES_DIRECTORY/"
++	mkdir -p "$TERMUX_PACKAGES_DIRECTORY/xz-${1}"
++	cp -f "${TERMUX_PREFIX}/bin/xz" "$TERMUX_PACKAGES_DIRECTORY/xz-${1}/xz"
++	cp -f "$(readlink -f "${TERMUX_PREFIX}/lib/liblzma.so")" "$TERMUX_PACKAGES_DIRECTORY/xz-${1}/liblzma.so.5"
+ 
+ 	echo "[*] Finished successfully (${1})."
+ 
 @@ -370,6 +374,9 @@ main() {
  					return 1
  				fi
@@ -192,3 +206,12 @@
  
  		# Create bootstrap archive.
  		create_bootstrap_archive "$TERMUX_ARCH" || return $?
+--- a/packages/liblzma/build.sh
++++ b/packages/liblzma/build.sh
+@@ -30,4 +30,6 @@ termux_step_post_massage() {
+ 	if ! readelf -d lib/liblzma.so | grep -q '(SONAME).*\[liblzma\.so\.'; then
+ 		termux_error_exit "SONAME of liblzma.so is not properly set."
+ 	fi
++
++	LDFLAGS+=" -Wl,-rpath=$TERMUX__ROOTFS"
+ }

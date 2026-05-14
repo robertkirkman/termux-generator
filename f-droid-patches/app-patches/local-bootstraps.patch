@@ -79,20 +79,111 @@
  import java.util.List;
  import java.util.zip.ZipEntry;
  import java.util.zip.ZipInputStream;
-@@ -155,9 +159,11 @@ final class TermuxInstaller {
+@@ -153,61 +158,50 @@
  
-                     final byte[] buffer = new byte[8096];
-                     final List<Pair<String, String>> symlinks = new ArrayList<>(50);
-+                    AssetManager assetManager = activity.getApplicationContext().getAssets();
-+                    String bootstrapFilename = "bootstrap-" + determineTermuxArchName() + ".zip";
-+                    InputStream inputStream = assetManager.open(bootstrapFilename);
+                     Logger.logInfo(LOG_TAG, "Extracting bootstrap zip to prefix staging directory \"" + TERMUX_STAGING_PREFIX_DIR_PATH + "\".");
  
+-                    final byte[] buffer = new byte[8096];
+-                    final List<Pair<String, String>> symlinks = new ArrayList<>(50);
+-
 -                    final byte[] zipBytes = loadZipBytes();
 -                    try (ZipInputStream zipInput = new ZipInputStream(new ByteArrayInputStream(zipBytes))) {
-+                    try (ZipInputStream zipInput = new ZipInputStream(inputStream)) {
-                         ZipEntry zipEntry;
-                         while ((zipEntry = zipInput.getNextEntry()) != null) {
-                             if (zipEntry.getName().equals("SYMLINKS.txt")) {
+-                        ZipEntry zipEntry;
+-                        while ((zipEntry = zipInput.getNextEntry()) != null) {
+-                            if (zipEntry.getName().equals("SYMLINKS.txt")) {
+-                                BufferedReader symlinksReader = new BufferedReader(new InputStreamReader(zipInput));
+-                                String line;
+-                                while ((line = symlinksReader.readLine()) != null) {
+-                                    String[] parts = line.split("←");
+-                                    if (parts.length != 2)
+-                                        throw new RuntimeException("Malformed symlink line: " + line);
+-                                    String oldPath = parts[0];
+-                                    String newPath = TERMUX_STAGING_PREFIX_DIR_PATH + "/" + parts[1];
+-                                    symlinks.add(Pair.create(oldPath, newPath));
+-
+-                                    error = ensureDirectoryExists(new File(newPath).getParentFile());
+-                                    if (error != null) {
+-                                        showBootstrapErrorDialog(activity, whenDone, Error.getErrorMarkdownString(error));
+-                                        return;
+-                                    }
+-                                }
+-                            } else {
+-                                String zipEntryName = zipEntry.getName();
+-                                File targetFile = new File(TERMUX_STAGING_PREFIX_DIR_PATH, zipEntryName);
+-                                boolean isDirectory = zipEntry.isDirectory();
+-
+-                                error = ensureDirectoryExists(isDirectory ? targetFile : targetFile.getParentFile());
+-                                if (error != null) {
+-                                    showBootstrapErrorDialog(activity, whenDone, Error.getErrorMarkdownString(error));
+-                                    return;
+-                                }
+-
+-                                if (!isDirectory) {
+-                                    try (FileOutputStream outStream = new FileOutputStream(targetFile)) {
+-                                        int readBytes;
+-                                        while ((readBytes = zipInput.read(buffer)) != -1)
+-                                            outStream.write(buffer, 0, readBytes);
+-                                    }
+-                                    if (zipEntryName.startsWith("bin/") || zipEntryName.startsWith("libexec") ||
+-                                        zipEntryName.startsWith("lib/apt/apt-helper") || zipEntryName.startsWith("lib/apt/methods")) {
+-                                        //noinspection OctalInteger
+-                                        Os.chmod(targetFile.getAbsolutePath(), 0700);
+-                                    }
+-                                }
+-                            }
++                    String bootstrapFilename = "bootstrap-" + determineTermuxArchName() + ".tar.xz";
++                    String xzFilename = "xz-" + determineTermuxArchName() + "/xz";
++                    String liblzmaFilename = "xz-" + determineTermuxArchName() + "/liblzma.so.5";
++                    String bootstrapFilePath = TERMUX_FILES_DIR_PATH + "/" + bootstrapFilename;
++                    String xzFilePath = TERMUX_FILES_DIR_PATH + "/xz";
++                    String liblzmaFilePath = TERMUX_FILES_DIR_PATH + "/liblzma.so.5";
++                    String[] filenames = {bootstrapFilename, xzFilename, liblzmaFilename};
++                    String[] filePaths = {bootstrapFilePath, xzFilePath, liblzmaFilePath};
++                    AssetManager assetManager = activity.getApplicationContext().getAssets();
++                    for (int i = 0; i < filenames.length; i++) {
++                        InputStream inputStream = assetManager.open(filenames[i]);
++                        OutputStream outputStream = new FileOutputStream(filePaths[i]);
++                        int read;
++                        final byte[] buffer = new byte[8096];
++                        while((read = inputStream.read(buffer)) != -1){
++                            outputStream.write(buffer, 0, read);
+                         }
+-                    }
+-
+-                    if (symlinks.isEmpty())
+-                        throw new RuntimeException("No SYMLINKS.txt encountered");
+-                    for (Pair<String, String> symlink : symlinks) {
+-                        Os.symlink(symlink.first, symlink.second);
++                        inputStream.close();
++                        outputStream.flush();
++                        outputStream.close();
++                    }
++                    ArrayList<String> cmds = new ArrayList<String>();
++                    cmds.add("/system/bin/chmod +x " + xzFilePath);
++                    cmds.add("/system/bin/env /system/bin/tar -I " + xzFilePath + " -xJf " + bootstrapFilePath + " -C " + TERMUX_STAGING_PREFIX_DIR_PATH);
++                    for (int i = 0; i < filePaths.length; i++) {
++                        cmds.add("/system/bin/rm " + filePaths[i]);
++                    }
++                    for (String cmd : cmds) {
++                        Process process = Runtime.getRuntime().exec(cmd);
++                        OutputStream stdin = process.getOutputStream();
++                        InputStream stdout = process.getInputStream();
++                        InputStream stderr = process.getErrorStream();
++                        stdin.flush();
++                        stdin.close();
++                        BufferedReader outputStreamCleaner;
++                        InputStream[] outputStreams = {stdout, stderr};
++                        for (InputStream outputStream : outputStreams) {
++                            outputStreamCleaner = new BufferedReader(new InputStreamReader(outputStream));
++                            String line;
++                            while ((line = outputStreamCleaner.readLine()) != null) {}
++                            outputStreamCleaner.close();
++                        }
++                        process.waitFor();
++                        process.destroy();
+                     }
+ 
+                     Logger.logInfo(LOG_TAG, "Moving termux prefix staging to prefix directory.");
 @@ -375,12 +381,25 @@ final class TermuxInstaller {
          return FileUtils.createDirectoryFile(directory.getAbsolutePath());
      }

@@ -119,6 +119,12 @@ EOF
     fi
 
     cp -f "$TERMUX_GENERATOR_HOME/scripts/termux_generator_utils.sh" termux-packages-main/scripts/
+
+    # remove packages that are severely broken in ways that corrupt
+    # the container, other packages, or the boostrap second stage if they are allowed to be built
+    # I keep track of these, so contact me if you think it's time to remove one from this blocklist
+    rm -rf termux-packages-main/packages/swift # https://github.com/termux/termux-packages/issues/26246
+    rm -rf termux-packages-main/packages/zeronet # https://github.com/termux/termux-packages/pull/25367
 }
 
 # Funktion, um die App zu patchen
@@ -223,9 +229,12 @@ move_bootstraps() {
     fi
     if [ -z "${DISABLE_TERMINAL}" ]; then
         mkdir -p "termux-apps-main/termux-app/$app_assets_dir"
-        mv termux-packages-main/bootstrap-*.zip "termux-apps-main/termux-app/$app_assets_dir"
+        mv termux-packages-main/bootstrap-* "termux-apps-main/termux-app/$app_assets_dir"
+        if [[ "$TERMUX_APP_TYPE" == "f-droid" ]]; then
+            mv termux-packages-main/xz-* "termux-apps-main/termux-app/$app_assets_dir"
+        fi
     else
-        for zip in termux-packages-main/bootstrap-*.zip; do
+        for zip in termux-packages-main/bootstrap-*; do
             mv "$zip" "$TERMUX_APP__PACKAGE_NAME-$TERMUX_APP_TYPE-$(basename $zip)"
         done
     fi
