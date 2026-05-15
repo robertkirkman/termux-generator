@@ -67,7 +67,7 @@
  import android.os.Build;
  import android.os.Environment;
  import android.system.Os;
-@@ -27,8 +28,11 @@ import java.io.BufferedReader;
+@@ -27,12 +28,16 @@
  import java.io.ByteArrayInputStream;
  import java.io.File;
  import java.io.FileOutputStream;
@@ -79,6 +79,11 @@
  import java.util.List;
  import java.util.zip.ZipEntry;
  import java.util.zip.ZipInputStream;
+ 
++import static com.termux.shared.termux.TermuxConstants.TERMUX_FILES_DIR_PATH;
+ import static com.termux.shared.termux.TermuxConstants.TERMUX_PREFIX_DIR;
+ import static com.termux.shared.termux.TermuxConstants.TERMUX_PREFIX_DIR_PATH;
+ import static com.termux.shared.termux.TermuxConstants.TERMUX_STAGING_PREFIX_DIR;
 @@ -153,61 +158,50 @@
  
                      Logger.logInfo(LOG_TAG, "Extracting bootstrap zip to prefix staging directory \"" + TERMUX_STAGING_PREFIX_DIR_PATH + "\".");
