@@ -59,7 +59,7 @@
      def localUrl = "src/main/cpp/bootstrap-" + arch + ".zip"
 --- a/termux-app/app/src/main/java/com/termux/app/TermuxInstaller.java
 +++ b/termux-app/app/src/main/java/com/termux/app/TermuxInstaller.java
-@@ -4,6 +4,7 @@ import android.app.Activity;
+@@ -4,6 +4,7 @@
  import android.app.AlertDialog;
  import android.app.ProgressDialog;
  import android.content.Context;
@@ -67,7 +67,15 @@
  import android.os.Build;
  import android.os.Environment;
  import android.system.Os;
-@@ -27,12 +28,16 @@
+@@ -22,17 +23,24 @@
+ import com.termux.shared.termux.TermuxConstants;
+ import com.termux.shared.termux.TermuxUtils;
+ import com.termux.shared.termux.shell.command.environment.TermuxShellEnvironment;
++import com.termux.shared.shell.command.environment.AndroidShellEnvironment;
++import com.termux.shared.shell.command.ExecutionCommand;
++import com.termux.shared.shell.command.runner.app.AppShell;
+ 
+ import java.io.BufferedReader;
  import java.io.ByteArrayInputStream;
  import java.io.File;
  import java.io.FileOutputStream;
@@ -84,7 +92,7 @@
  import static com.termux.shared.termux.TermuxConstants.TERMUX_PREFIX_DIR;
  import static com.termux.shared.termux.TermuxConstants.TERMUX_PREFIX_DIR_PATH;
  import static com.termux.shared.termux.TermuxConstants.TERMUX_STAGING_PREFIX_DIR;
-@@ -153,61 +158,50 @@
+@@ -153,62 +161,34 @@
  
                      Logger.logInfo(LOG_TAG, "Extracting bootstrap zip to prefix staging directory \"" + TERMUX_STAGING_PREFIX_DIR_PATH + "\".");
  
@@ -136,15 +144,18 @@
 -                                    }
 -                                }
 -                            }
-+                    String bootstrapFilename = "bootstrap-" + determineTermuxArchName() + ".tar.xz";
++                    String decompressedBootstrapFilename = "bootstrap-" + determineTermuxArchName() + ".tar";
++                    String bootstrapFilename = decompressedBootstrapFilename + ".xz";
 +                    String xzFilename = "xz-" + determineTermuxArchName() + "/xz";
 +                    String liblzmaFilename = "xz-" + determineTermuxArchName() + "/liblzma.so.5";
-+                    String bootstrapFilePath = TERMUX_FILES_DIR_PATH + "/" + bootstrapFilename;
++                    String decompressedBootstrapFilePath = TERMUX_FILES_DIR_PATH + "/" + decompressedBootstrapFilename;
++                    String bootstrapFilePath = decompressedBootstrapFilePath + ".xz";
 +                    String xzFilePath = TERMUX_FILES_DIR_PATH + "/xz";
 +                    String liblzmaFilePath = TERMUX_FILES_DIR_PATH + "/liblzma.so.5";
 +                    String[] filenames = {bootstrapFilename, xzFilename, liblzmaFilename};
 +                    String[] filePaths = {bootstrapFilePath, xzFilePath, liblzmaFilePath};
-+                    AssetManager assetManager = activity.getApplicationContext().getAssets();
++                    Context ctx = activity.getApplicationContext();
++                    AssetManager assetManager = ctx.getAssets();
 +                    for (int i = 0; i < filenames.length; i++) {
 +                        InputStream inputStream = assetManager.open(filenames[i]);
 +                        OutputStream outputStream = new FileOutputStream(filePaths[i]);
@@ -159,37 +170,33 @@
 -                        throw new RuntimeException("No SYMLINKS.txt encountered");
 -                    for (Pair<String, String> symlink : symlinks) {
 -                        Os.symlink(symlink.first, symlink.second);
+-                    }
 +                        inputStream.close();
 +                        outputStream.flush();
 +                        outputStream.close();
 +                    }
-+                    ArrayList<String> cmds = new ArrayList<String>();
-+                    cmds.add("/system/bin/chmod +x " + xzFilePath);
-+                    cmds.add("/system/bin/env /system/bin/tar -I " + xzFilePath + " -xJf " + bootstrapFilePath + " -C " + TERMUX_STAGING_PREFIX_DIR_PATH);
-+                    for (int i = 0; i < filePaths.length; i++) {
-+                        cmds.add("/system/bin/rm " + filePaths[i]);
-+                    }
-+                    for (String cmd : cmds) {
-+                        Process process = Runtime.getRuntime().exec(cmd);
-+                        OutputStream stdin = process.getOutputStream();
-+                        InputStream stdout = process.getInputStream();
-+                        InputStream stderr = process.getErrorStream();
-+                        stdin.flush();
-+                        stdin.close();
-+                        BufferedReader outputStreamCleaner;
-+                        InputStream[] outputStreams = {stdout, stderr};
-+                        for (InputStream outputStream : outputStreams) {
-+                            outputStreamCleaner = new BufferedReader(new InputStreamReader(outputStream));
-+                            String line;
-+                            while ((line = outputStreamCleaner.readLine()) != null) {}
-+                            outputStreamCleaner.close();
-+                        }
-+                        process.waitFor();
-+                        process.destroy();
-                     }
++                    runEarlyCommand(ctx, "/system/bin/chmod +x " + xzFilePath);
++                    runEarlyCommand(ctx, xzFilePath + " -d " + bootstrapFilePath);
++                    runEarlyCommand(ctx, "/system/bin/tar -xf " + decompressedBootstrapFilePath + " -C " + TERMUX_STAGING_PREFIX_DIR_PATH);
++                    runEarlyCommand(ctx, "/system/bin/rm " + xzFilePath + " " + liblzmaFilePath + " " + decompressedBootstrapFilePath);
  
                      Logger.logInfo(LOG_TAG, "Moving termux prefix staging to prefix directory.");
-@@ -375,12 +381,25 @@ final class TermuxInstaller {
+ 
+@@ -239,6 +219,13 @@
+         }.start();
+     }
+ 
++    public static void runEarlyCommand(Context ctx, String cmd) {
++        ExecutionCommand executionCommand = new ExecutionCommand(-1, "/system/bin/sh", null, cmd + "\n", "/", ExecutionCommand.Runner.APP_SHELL.getName(), true);
++        executionCommand.commandLabel = " TermuxInstaller Early Command";
++        executionCommand.backgroundCustomLogLevel = Logger.LOG_LEVEL_OFF;
++        AppShell appShell = AppShell.execute(ctx, executionCommand, null, new AndroidShellEnvironment(), null, true);
++    }
++
+     public static void showBootstrapErrorDialog(Activity activity, Runnable whenDone, String message) {
+         Logger.logErrorExtended(LOG_TAG, "Bootstrap Error:\n" + message);
+ 
+@@ -375,12 +362,25 @@
          return FileUtils.createDirectoryFile(directory.getAbsolutePath());
      }
  
