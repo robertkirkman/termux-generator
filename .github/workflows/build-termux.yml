@@ -13,7 +13,7 @@ on:
         description: "Specify the Termux project to fork [f-droid, play-store]. Defaults to f-droid."
         required: false
       architectures:
-        description: "Specify the bootstrap architectures to include in a comma-separated list."
+        description: "Specify the bootstrap architectures to include in a comma-separated list [aarch64,arm,x86_64,i686]."
         required: false
       bootstrap-second-stage:
         description: "Automatically execute termux-bootstrap-second-stage.sh."
