@@ -216,6 +216,9 @@ if [ -z "${DO_NOT_CLEAN}" ]; then
 fi
 
 if [[ "$TERMUX_APP_TYPE" == "f-droid" ]] || [ -z "${DISABLE_TERMINAL}" ]; then
+    if [ -z "${DISABLE_X11}" ]; then
+        build_termux_x11
+    fi
     build_apps
     move_apks
 fi
