@@ -17,7 +17,7 @@
          arches.forEach { (arch, checksum) ->
              val downloadTo = "src/main/cpp/bootstrap-${arch}.zip"
              val url = "https://github.com/termux-play-store/termux-packages/releases/download/bootstrap-${bootstrapVersion}/bootstrap-${arch}.zip"
--            downloadFile(downloadTo, url, checksum)
+-            downloadFile(projectDir, downloadTo, url, checksum)
          }
 +++ b/termux-app/src/main/java/com/termux/app/TermuxInstaller.java
 @@ -6,6 +6,8 @@ import android.app.ProgressDialog;
