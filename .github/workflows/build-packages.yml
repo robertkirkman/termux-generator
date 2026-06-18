@@ -1,0 +1,42 @@
+name: Compile Termux packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      architectures:
+        description: "Specify the architectures to include in a comma-separated list [aarch64,arm,x86_64,i686]."
+        required: true
+        default: "aarch64"
+      packages:
+        description: "Specify the packages to compile in a comma-separated list (e.g., bash,nano)."
+        required: true
+      type:
+        description: "Specify the Termux project type [f-droid, play-store]. Defaults to f-droid."
+        required: false
+        default: "f-droid"
+      name:
+        description: "Specify TERMUX_APP__PACKAGE_NAME name. Defaults to com.termux."
+        required: false
+        default: "com.termux"
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+
+      - name: Compile packages
+        run: |
+          chmod +x build-packages.sh
+          ./build-packages.sh \
+            --name "${{ github.event.inputs.name }}" \
+            --type "${{ github.event.inputs.type }}" \
+            --architectures "${{ github.event.inputs.architectures }}" \
+            --packages "${{ github.event.inputs.packages }}"
+
+      - name: Upload zip of built packages
+        uses: actions/upload-artifact@v4.6.0
+        with:
+          name: termux-built-packages
+          path: ./built-packages.zip

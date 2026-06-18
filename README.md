@@ -144,3 +144,29 @@ cd termux-generator
 ```bash
 termux-x11 -xstartup xfce4-session &
 ```
+
+## Compiling Termux Packages
+
+You can compile specific packages for your custom-named Termux application instead of rebuilding the entire bootstraps or applications.
+
+### Compiling via GitHub Actions
+
+1. Go to the **Actions** tab of your forked repository.
+2. Select the **Compile Termux packages** workflow.
+3. Click the **Run workflow** button and specify:
+   - **Architectures**: Comma-separated list of architectures (e.g. `aarch64,arm,x86_64,i686`).
+   - **Packages**: Comma-separated list of package names to build (e.g. `bash,nano`).
+   - **Type**: Project type (`f-droid` or `play-store`).
+   - **Name**: The custom package name of your Termux application.
+4. Run the workflow and once finished, download the `termux-built-packages` artifact which contains a zip of all compiled `.deb` packages.
+
+### Compiling Locally
+
+Use the `build-packages.sh` script to compile packages locally:
+
+```bash
+./build-packages.sh --packages bash,nano --architectures aarch64 --name com.mytermux.app --type f-droid
+```
+
+After the compilation finishes, the built `.deb` packages will be gathered inside the `built-packages/` directory and zipped into `built-packages.zip`.
+
