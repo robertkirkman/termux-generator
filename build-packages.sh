@@ -106,32 +106,40 @@ docker container kill "$TERMUX_GENERATOR_CONTAINER_NAME" 2> /dev/null || true
 docker container rm -f "$TERMUX_GENERATOR_CONTAINER_NAME" 2>/dev/null || true
 
 # Remove old files
-rm -rf termux-packages-main 2>/dev/null
 rm -rf *.deb *.zip 2>/dev/null
 
-# Download the termux-packages repository
-echo "[*] Cloning termux-packages repository..."
-if [[ "$TERMUX_APP_TYPE" == "f-droid" ]]; then
-    git clone --depth 1 https://github.com/termux/termux-packages.git termux-packages-main
-else
-    git clone --depth 1 https://github.com/termux-play-store/termux-packages.git termux-packages-main
-fi
+if [ ! -d termux-packages-main ]; then
+    # Download the termux-packages repository
+    echo "[*] Cloning termux-packages repository..."
+    if [[ "$TERMUX_APP_TYPE" == "f-droid" ]]; then
+        git clone --depth 1 https://github.com/termux/termux-packages.git termux-packages-main
+    else
+        git clone --depth 1 https://github.com/termux-play-store/termux-packages.git termux-packages-main
+    fi
 
-if [[ "${CI-}" == "true" ]]; then
-    if [ -f termux-packages-main/scripts/free-space.sh ]; then
-        echo "[*] Freeing disk space on CI..."
-        termux-packages-main/scripts/free-space.sh
+    if [[ "${CI-}" == "true" ]]; then
+        if [ -f termux-packages-main/scripts/free-space.sh ]; then
+            echo "[*] Freeing disk space on CI..."
+            termux-packages-main/scripts/free-space.sh
+        fi
+    fi
+
+    # Patch packages repository
+    echo "[*] Patching termux-packages repository..."
+    if [[ "$TERMUX_APP__PACKAGE_NAME" != "com.termux" ]]; then
+        replace_termux_name termux-packages-main "$TERMUX_APP__PACKAGE_NAME"
+    fi
+
+    # Apply bootstrap patches (which are actually toolchain/build system patches)
+    apply_patches "$TERMUX_APP_TYPE-patches/bootstrap-patches" termux-packages-main
+else
+    if [[ "${CI-}" == "true" ]]; then
+        if [ -f termux-packages-main/scripts/free-space.sh ]; then
+            echo "[*] Freeing disk space on CI..."
+            termux-packages-main/scripts/free-space.sh
+        fi
     fi
 fi
-
-# Patch packages repository
-echo "[*] Patching termux-packages repository..."
-if [[ "$TERMUX_APP__PACKAGE_NAME" != "com.termux" ]]; then
-    replace_termux_name termux-packages-main "$TERMUX_APP__PACKAGE_NAME"
-fi
-
-# Apply bootstrap patches (which are actually toolchain/build system patches)
-apply_patches "$TERMUX_APP_TYPE-patches/bootstrap-patches" termux-packages-main
 
 # Set custom container name
 portable_sed_i -e "s|termux-package-builder|$TERMUX_GENERATOR_CONTAINER_NAME|g" termux-packages-main/scripts/run-docker.sh

@@ -15,6 +15,7 @@ DISABLE_BOOTSTRAP_SECOND_STAGE=""
 ENABLE_SSH_SERVER=""
 DEFAULT_PASSWORD="changeme"
 DISABLE_BOOTSTRAP=""
+ADD_PASSED=""
 DISABLE_TERMINAL=""
 DISABLE_TASKER=""
 DISABLE_FLOAT=""
@@ -92,6 +93,7 @@ while (($# > 0)); do
         -a|--add)
             if [ $# -gt 1 ] && [ -n "$2" ] && [[ $2 != -* ]]; then
                 ADDITIONAL_PACKAGES+=",$2"
+                ADD_PASSED=1
                 shift 1
             else
                 echo "[!] Option '--add' requires an argument."
@@ -212,6 +214,8 @@ if [ -z "${DO_NOT_CLEAN}" ]; then
     if [ -z "${DISABLE_BOOTSTRAP}" ]; then
         build_bootstraps
         move_bootstraps
+    elif [ -n "${ADD_PASSED}" ]; then
+        build_packages_only
     fi
 fi
 
