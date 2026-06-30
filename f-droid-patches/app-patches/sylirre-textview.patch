@@ -1,0 +1,898 @@
+diff --git a/app/src/main/java/com/termux/app/TermuxActivity.java b/app/src/main/java/com/termux/app/TermuxActivity.java
+index 57de754524..d861549aef 100644
+--- a/termux-app/app/src/main/java/com/termux/app/TermuxActivity.java
++++ b/termux-app/app/src/main/java/com/termux/app/TermuxActivity.java
+@@ -24,6 +24,7 @@
+ import android.widget.ImageButton;
+ import android.widget.ListView;
+ import android.widget.RelativeLayout;
++import android.widget.TextView;
+ import android.widget.Toast;
+ 
+ import com.termux.R;
+@@ -44,6 +45,7 @@
+ import com.termux.shared.termux.crash.TermuxCrashUtils;
+ import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
+ import com.termux.app.terminal.TermuxSessionsListViewController;
++import com.termux.app.terminal.TermuxTerminalTextViewController;
+ import com.termux.app.terminal.io.TerminalToolbarViewPager;
+ import com.termux.app.terminal.TermuxTerminalViewClient;
+ import com.termux.shared.termux.extrakeys.ExtraKeysView;
+@@ -56,8 +58,6 @@
+ import com.termux.shared.view.ViewUtils;
+ import com.termux.terminal.TerminalSession;
+ import com.termux.terminal.TerminalSessionClient;
+-import com.termux.view.TerminalView;
+-import com.termux.view.TerminalViewClient;
+ 
+ import androidx.annotation.NonNull;
+ import androidx.annotation.Nullable;
+@@ -87,13 +87,18 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
+     TermuxService mTermuxService;
+ 
+     /**
+-     * The {@link TerminalView} shown in  {@link TermuxActivity} that displays the terminal.
++     * The {@link TextView} shown in {@link TermuxActivity} that displays plain terminal text.
+      */
+-    TerminalView mTerminalView;
++    TextView mTerminalView;
+ 
+     /**
+-     *  The {@link TerminalViewClient} interface implementation to allow for communication between
+-     *  {@link TerminalView} and {@link TermuxActivity}.
++     * Controller that attaches terminal sessions to {@link #mTerminalView}.
++     */
++    TermuxTerminalTextViewController mTerminalTextViewController;
++
++    /**
++     *  The terminal view client implementation to allow for communication between terminal input
++     *  handling and {@link TermuxActivity}.
+      */
+     TermuxTerminalViewClient mTermuxTerminalViewClient;
+ 
+@@ -488,7 +493,8 @@ private void setTermuxTerminalViewAndClients() {
+ 
+         // Set termux terminal view
+         mTerminalView = findViewById(R.id.terminal_view);
+-        mTerminalView.setTerminalViewClient(mTermuxTerminalViewClient);
++        mTerminalTextViewController = new TermuxTerminalTextViewController(mTerminalView);
++        mTerminalTextViewController.setTerminalViewClient(mTermuxTerminalViewClient);
+ 
+         if (mTermuxTerminalViewClient != null)
+             mTermuxTerminalViewClient.onCreate();
+@@ -508,7 +514,7 @@ private void setTermuxSessionsListView() {
+ 
+ 
+     private void setTerminalToolbarView(Bundle savedInstanceState) {
+-        mTermuxTerminalExtraKeys = new TermuxTerminalExtraKeys(this, mTerminalView,
++        mTermuxTerminalExtraKeys = new TermuxTerminalExtraKeys(this, mTerminalTextViewController,
+             mTermuxTerminalViewClient, mTermuxTerminalSessionActivityClient);
+ 
+         final ViewPager terminalToolbarViewPager = getTerminalToolbarViewPager();
+@@ -631,16 +637,10 @@ public void onCreateContextMenu(ContextMenu menu, View v, ContextMenuInfo menuIn
+         TerminalSession currentSession = getCurrentSession();
+         if (currentSession == null) return;
+ 
+-        boolean autoFillEnabled = mTerminalView.isAutoFillEnabled();
+-
+         menu.add(Menu.NONE, CONTEXT_MENU_SELECT_URL_ID, Menu.NONE, R.string.action_select_url);
+         menu.add(Menu.NONE, CONTEXT_MENU_SHARE_TRANSCRIPT_ID, Menu.NONE, R.string.action_share_transcript);
+-        if (!DataUtils.isNullOrEmpty(mTerminalView.getStoredSelectedText()))
++        if (!DataUtils.isNullOrEmpty(mTerminalTextViewController.getSelectedText()))
+             menu.add(Menu.NONE, CONTEXT_MENU_SHARE_SELECTED_TEXT, Menu.NONE, R.string.action_share_selected_text);
+-        if (autoFillEnabled)
+-            menu.add(Menu.NONE, CONTEXT_MENU_AUTOFILL_USERNAME, Menu.NONE, R.string.action_autofill_username);
+-        if (autoFillEnabled)
+-            menu.add(Menu.NONE, CONTEXT_MENU_AUTOFILL_PASSWORD, Menu.NONE, R.string.action_autofill_password);
+         menu.add(Menu.NONE, CONTEXT_MENU_RESET_TERMINAL_ID, Menu.NONE, R.string.action_reset_terminal);
+         menu.add(Menu.NONE, CONTEXT_MENU_KILL_PROCESS_ID, Menu.NONE, getResources().getString(R.string.action_kill_process, getCurrentSession().getPid())).setEnabled(currentSession.isRunning());
+         menu.add(Menu.NONE, CONTEXT_MENU_STYLING_ID, Menu.NONE, R.string.action_style_terminal);
+@@ -671,12 +671,6 @@ public boolean onContextItemSelected(MenuItem item) {
+             case CONTEXT_MENU_SHARE_SELECTED_TEXT:
+                 mTermuxTerminalViewClient.shareSelectedText();
+                 return true;
+-            case CONTEXT_MENU_AUTOFILL_USERNAME:
+-                mTerminalView.requestAutoFillUsername();
+-                return true;
+-            case CONTEXT_MENU_AUTOFILL_PASSWORD:
+-                mTerminalView.requestAutoFillPassword();
+-                return true;
+             case CONTEXT_MENU_RESET_TERMINAL_ID:
+                 onResetTerminalSession(session);
+                 return true;
+@@ -706,8 +700,6 @@ public boolean onContextItemSelected(MenuItem item) {
+     @Override
+     public void onContextMenuClosed(Menu menu) {
+         super.onContextMenuClosed(menu);
+-        // onContextMenuClosed() is triggered twice if back button is pressed to dismiss instead of tap for some reason
+-        mTerminalView.onContextMenuClosed(menu);
+     }
+ 
+     private void showKillSessionDialog(TerminalSession session) {
+@@ -877,10 +869,14 @@ public TermuxService getTermuxService() {
+         return mTermuxService;
+     }
+ 
+-    public TerminalView getTerminalView() {
++    public TextView getTerminalView() {
+         return mTerminalView;
+     }
+ 
++    public TermuxTerminalTextViewController getTerminalTextViewController() {
++        return mTerminalTextViewController;
++    }
++
+     public TermuxTerminalViewClient getTermuxTerminalViewClient() {
+         return mTermuxTerminalViewClient;
+     }
+@@ -891,8 +887,8 @@ public TermuxTerminalSessionActivityClient getTermuxTerminalSessionClient() {
+ 
+     @Nullable
+     public TerminalSession getCurrentSession() {
+-        if (mTerminalView != null)
+-            return mTerminalView.getCurrentSession();
++        if (mTerminalTextViewController != null)
++            return mTerminalTextViewController.getCurrentSession();
+         else
+             return null;
+     }
+diff --git a/app/src/main/java/com/termux/app/terminal/TermuxTerminalSessionActivityClient.java b/app/src/main/java/com/termux/app/terminal/TermuxTerminalSessionActivityClient.java
+index cd38163116..fe5e041688 100644
+--- a/termux-app/app/src/main/java/com/termux/app/terminal/TermuxTerminalSessionActivityClient.java
++++ b/termux-app/app/src/main/java/com/termux/app/terminal/TermuxTerminalSessionActivityClient.java
+@@ -76,7 +76,7 @@ public void onStart() {
+ 
+         // The current terminal session may have changed while being away, force
+         // a refresh of the displayed terminal.
+-        mActivity.getTerminalView().onScreenUpdated();
++        mActivity.getTerminalTextViewController().onScreenUpdated();
+     }
+ 
+     /**
+@@ -118,7 +118,7 @@ public void onReloadActivityStyling() {
+     public void onTextChanged(@NonNull TerminalSession changedSession) {
+         if (!mActivity.isVisible()) return;
+ 
+-        if (mActivity.getCurrentSession() == changedSession) mActivity.getTerminalView().onScreenUpdated();
++        if (mActivity.getCurrentSession() == changedSession) mActivity.getTerminalTextViewController().onScreenUpdated();
+     }
+ 
+     @Override
+@@ -192,8 +192,11 @@ public void onPasteTextFromClipboard(@Nullable TerminalSession session) {
+         if (!mActivity.isVisible()) return;
+ 
+         String text = ShareUtils.getTextStringFromClipboardIfSet(mActivity, true);
+-        if (text != null)
+-            mActivity.getTerminalView().mEmulator.paste(text);
++        if (text != null) {
++            TerminalSession currentSession = mActivity.getCurrentSession();
++            if (currentSession != null && currentSession.getEmulator() != null)
++                currentSession.getEmulator().paste(text);
++        }
+     }
+ 
+     @Override
+@@ -231,7 +234,7 @@ public void onTerminalCursorStateChange(boolean enabled) {
+ 
+         // If cursor is to enabled now, then start cursor blinking if blinking is enabled
+         // otherwise stop cursor blinking
+-        mActivity.getTerminalView().setTerminalCursorBlinkerState(enabled, false);
++        mActivity.getTerminalTextViewController().setTerminalCursorBlinkerState(enabled, false);
+     }
+ 
+     @Override
+@@ -251,7 +254,7 @@ public void setTerminalShellPid(@NonNull TerminalSession terminalSession, int pi
+     public void onResetTerminalSession() {
+         // Ensure blinker starts again after reset if cursor blinking was disabled before reset like
+         // with "tput civis" which would have called onTerminalCursorStateChange()
+-        mActivity.getTerminalView().setTerminalCursorBlinkerState(true, true);
++        mActivity.getTerminalTextViewController().setTerminalCursorBlinkerState(true, true);
+     }
+ 
+ 
+@@ -293,7 +296,7 @@ private synchronized void releaseBellSoundPool() {
+     public void setCurrentSession(TerminalSession session) {
+         if (session == null) return;
+ 
+-        if (mActivity.getTerminalView().attachSession(session)) {
++        if (mActivity.getTerminalTextViewController().attachSession(session)) {
+             // notify about switched session if not already displaying the session
+             notifyOfSessionChange();
+         }
+diff --git a/app/src/main/java/com/termux/app/terminal/TermuxTerminalTextViewController.java b/app/src/main/java/com/termux/app/terminal/TermuxTerminalTextViewController.java
+new file mode 100644
+index 0000000000..9179e0863a
+--- /dev/null
++++ b/termux-app/app/src/main/java/com/termux/app/terminal/TermuxTerminalTextViewController.java
+@@ -0,0 +1,463 @@
++package com.termux.app.terminal;
++
++import android.graphics.Color;
++import android.graphics.Paint;
++import android.os.Handler;
++import android.os.Looper;
++import android.text.InputType;
++import android.text.Selection;
++import android.text.Spannable;
++import android.text.SpannableStringBuilder;
++import android.text.Spanned;
++import android.text.style.BackgroundColorSpan;
++import android.text.style.ForegroundColorSpan;
++import android.text.style.UnderlineSpan;
++import android.util.TypedValue;
++import android.view.KeyCharacterMap;
++import android.view.KeyEvent;
++import android.view.MotionEvent;
++import android.widget.TextView;
++
++import androidx.annotation.NonNull;
++import androidx.annotation.Nullable;
++
++import com.termux.terminal.KeyHandler;
++import com.termux.terminal.TerminalEmulator;
++import com.termux.terminal.TerminalSession;
++import com.termux.shared.termux.terminal.io.TerminalExtraKeys;
++
++public class TermuxTerminalTextViewController implements TerminalExtraKeys.TerminalInput {
++
++    public static final int KEY_EVENT_SOURCE_VIRTUAL_KEYBOARD = KeyCharacterMap.VIRTUAL_KEYBOARD;
++    public static final int KEY_EVENT_SOURCE_SOFT_KEYBOARD = 0;
++    public static final int TERMINAL_CURSOR_BLINK_RATE_MIN = 100;
++    public static final int TERMINAL_CURSOR_BLINK_RATE_MAX = 2000;
++
++    private static final int MIN_COLUMNS = 2;
++    private static final int MIN_ROWS = 2;
++
++    private final TextView mTextView;
++
++    private TermuxTerminalViewClient mClient;
++    private TerminalSession mTermSession;
++    private TerminalEmulator mEmulator;
++    private int mCombiningAccent;
++    private int mLastColumns;
++    private int mLastRows;
++    private final Handler mCursorBlinkerHandler = new Handler(Looper.getMainLooper());
++    private Runnable mCursorBlinkerRunnable;
++    private int mTerminalCursorBlinkerRate;
++    private boolean mCursorVisible = true;
++    private boolean mPendingFollowOutput;
++
++    private static boolean TERMINAL_VIEW_KEY_LOGGING_ENABLED = false;
++
++    private static final String LOG_TAG = "TermuxTerminalTextViewController";
++
++    public TermuxTerminalTextViewController(@NonNull TextView textView) {
++        mTextView = textView;
++        mTextView.setTextIsSelectable(true);
++        mTextView.setInputType(InputType.TYPE_NULL);
++        mTextView.setHorizontallyScrolling(true);
++        mTextView.setSingleLine(false);
++        mTextView.setOnKeyListener((view, keyCode, event) -> {
++            if (event.getAction() == KeyEvent.ACTION_UP)
++                return mClient != null && mClient.onKeyUp(keyCode, event);
++            return onKeyDown(keyCode, event);
++        });
++        mTextView.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> updateSize());
++    }
++
++    public void setTerminalViewClient(TermuxTerminalViewClient client) {
++        mClient = client;
++    }
++
++    public void setIsTerminalViewKeyLoggingEnabled(boolean value) {
++        TERMINAL_VIEW_KEY_LOGGING_ENABLED = value;
++    }
++
++    public void setTextSize(int textSize) {
++        mTextView.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize);
++        updateSize();
++        onScreenUpdated();
++    }
++
++    public boolean attachSession(TerminalSession session) {
++        if (session == mTermSession) return false;
++        mTermSession = session;
++        mEmulator = null;
++        mCombiningAccent = 0;
++        mPendingFollowOutput = false;
++        updateSize();
++        onScreenUpdated();
++        return true;
++    }
++
++    public void updateSize() {
++        if (mTermSession == null || mTextView.getWidth() <= 0 || mTextView.getHeight() <= 0) return;
++
++        Paint paint = mTextView.getPaint();
++        int contentWidth = Math.max(1, mTextView.getWidth() - mTextView.getPaddingLeft() - mTextView.getPaddingRight());
++        int contentHeight = Math.max(1, mTextView.getHeight() - mTextView.getPaddingTop() - mTextView.getPaddingBottom());
++        int cellWidth = Math.max(1, Math.round(paint.measureText("X")));
++        Paint.FontMetricsInt fontMetrics = paint.getFontMetricsInt();
++        int cellHeight = Math.max(1, fontMetrics.descent - fontMetrics.ascent);
++        int columns = Math.max(MIN_COLUMNS, contentWidth / cellWidth);
++        int rows = Math.max(MIN_ROWS, contentHeight / cellHeight);
++
++        if (mEmulator != null && columns == mLastColumns && rows == mLastRows) return;
++
++        boolean hadEmulator = mEmulator != null;
++        mTermSession.updateSize(columns, rows, cellWidth, cellHeight);
++        mLastColumns = columns;
++        mLastRows = rows;
++        mEmulator = mTermSession.getEmulator();
++        if (!hadEmulator && mEmulator != null && mClient != null)
++            mClient.onEmulatorSet();
++        onScreenUpdated();
++    }
++
++    public void onScreenUpdated() {
++        if (mEmulator == null) {
++            mPendingFollowOutput = false;
++            mTextView.setText("");
++            return;
++        }
++
++        int oldScrollY = mTextView.getScrollY();
++        int selectionAnchor = getSelectionAnchorForScrollY(oldScrollY);
++        int selectionStart = mTextView.getSelectionStart();
++        int selectionEnd = mTextView.getSelectionEnd();
++        boolean hadSelection = isSelectionRange(selectionStart, selectionEnd);
++        boolean shouldFollowOutput = !hadSelection && !mEmulator.isAutoScrollDisabled() && (isScrolledToBottom() || mPendingFollowOutput);
++        mPendingFollowOutput = shouldFollowOutput;
++        CharSequence screenText = getScreenTextWithCursor();
++        mTextView.setText(screenText, TextView.BufferType.SPANNABLE);
++        if (hadSelection) {
++            setSelection(selectionStart, selectionEnd);
++        } else {
++            setCollapsedSelection(shouldFollowOutput ? getLastOutputOffset(screenText) : selectionAnchor);
++        }
++        mTextView.post(() -> {
++            if (shouldFollowOutput) {
++                mTextView.scrollTo(0, getMaxScrollY());
++                mPendingFollowOutput = false;
++            } else {
++                mTextView.scrollTo(0, Math.min(oldScrollY, getMaxScrollY()));
++            }
++        });
++        mEmulator.clearScrollCounter();
++    }
++
++    private int getSelectionAnchorForScrollY(int scrollY) {
++        if (mTextView.getLayout() == null) return 0;
++        int line = mTextView.getLayout().getLineForVertical(scrollY);
++        return mTextView.getLayout().getLineStart(line);
++    }
++
++    private void setCollapsedSelection(int position) {
++        setSelection(position, position);
++    }
++
++    private void setSelection(int start, int end) {
++        CharSequence text = mTextView.getText();
++        if (!(text instanceof Spannable)) return;
++        int selectionStart = Math.max(0, Math.min(start, text.length()));
++        int selectionEnd = Math.max(0, Math.min(end, text.length()));
++        Selection.setSelection((Spannable) text, selectionStart, selectionEnd);
++    }
++
++    private boolean isScrolledToBottom() {
++        return mTextView.getScrollY() >= getMaxScrollY() - 1;
++    }
++
++    private boolean isSelectionRange(int selectionStart, int selectionEnd) {
++        return selectionStart >= 0 && selectionEnd >= 0 && selectionStart != selectionEnd;
++    }
++
++    private int getMaxScrollY() {
++        if (mTextView.getLayout() == null) return 0;
++        int contentHeight = mTextView.getLayout().getLineBottom(getLastOutputLine());
++        int viewportHeight = mTextView.getHeight() - mTextView.getPaddingTop() - mTextView.getPaddingBottom();
++        return Math.max(contentHeight - viewportHeight, 0);
++    }
++
++    private int getLastOutputLine() {
++        CharSequence text = mTextView.getText();
++        if (text.length() == 0) return 0;
++        return mTextView.getLayout().getLineForOffset(getLastOutputOffset(text));
++    }
++
++    private int getLastOutputOffset(CharSequence text) {
++        int lastOutputOffset = text.length() - 1;
++        while (lastOutputOffset > 0 && text.charAt(lastOutputOffset) == '\n') {
++            lastOutputOffset--;
++        }
++        return Math.max(lastOutputOffset, 0);
++    }
++
++    @Nullable
++    public TerminalSession getCurrentSession() {
++        return mTermSession;
++    }
++
++    @Nullable
++    public TerminalEmulator getEmulator() {
++        return mEmulator;
++    }
++
++    public String getSelectedText() {
++        int selectionStart = mTextView.getSelectionStart();
++        int selectionEnd = mTextView.getSelectionEnd();
++        if (selectionStart < 0 || selectionEnd < 0 || selectionStart == selectionEnd) return null;
++        int start = Math.min(selectionStart, selectionEnd);
++        int end = Math.max(selectionStart, selectionEnd);
++        return mTextView.getText().subSequence(start, end).toString();
++    }
++
++    public boolean onKeyDown(int keyCode, KeyEvent event) {
++        if (TERMINAL_VIEW_KEY_LOGGING_ENABLED && mClient != null)
++            mClient.logInfo(LOG_TAG, "onKeyDown(keyCode=" + keyCode + ", isSystem()=" + event.isSystem() + ", event=" + event + ")");
++        if (mTermSession == null || mEmulator == null) return true;
++
++        if (mClient != null && mClient.onKeyDown(keyCode, event, mTermSession)) {
++            onScreenUpdated();
++            return true;
++        } else if (event.isSystem() && (mClient == null || !mClient.shouldBackButtonBeMappedToEscape() || keyCode != KeyEvent.KEYCODE_BACK)) {
++            return false;
++        } else if (event.getAction() == KeyEvent.ACTION_MULTIPLE && keyCode == KeyEvent.KEYCODE_UNKNOWN) {
++            mTermSession.write(event.getCharacters());
++            return true;
++        }
++
++        final int metaState = event.getMetaState();
++        final boolean controlDown = event.isCtrlPressed() || (mClient != null && mClient.readControlKey());
++        final boolean leftAltDown = (metaState & KeyEvent.META_ALT_LEFT_ON) != 0 || (mClient != null && mClient.readAltKey());
++        final boolean shiftDown = event.isShiftPressed() || (mClient != null && mClient.readShiftKey());
++        final boolean rightAltDownFromEvent = (metaState & KeyEvent.META_ALT_RIGHT_ON) != 0;
++
++        int keyMod = 0;
++        if (controlDown) keyMod |= KeyHandler.KEYMOD_CTRL;
++        if (event.isAltPressed() || leftAltDown) keyMod |= KeyHandler.KEYMOD_ALT;
++        if (shiftDown) keyMod |= KeyHandler.KEYMOD_SHIFT;
++        if (event.isNumLockOn()) keyMod |= KeyHandler.KEYMOD_NUM_LOCK;
++        if (!event.isFunctionPressed() && handleKeyCode(keyCode, keyMod)) return true;
++
++        int bitsToClear = KeyEvent.META_CTRL_MASK;
++        if (!rightAltDownFromEvent)
++            bitsToClear |= KeyEvent.META_ALT_ON | KeyEvent.META_ALT_LEFT_ON;
++        int effectiveMetaState = event.getMetaState() & ~bitsToClear;
++        if (shiftDown) effectiveMetaState |= KeyEvent.META_SHIFT_ON | KeyEvent.META_SHIFT_LEFT_ON;
++        if (mClient != null && mClient.readFnKey()) effectiveMetaState |= KeyEvent.META_FUNCTION_ON;
++
++        int result = event.getUnicodeChar(effectiveMetaState);
++        if (result == 0) return false;
++
++        if ((result & KeyCharacterMap.COMBINING_ACCENT) != 0) {
++            if (mCombiningAccent != 0)
++                inputCodePoint(event.getDeviceId(), mCombiningAccent, controlDown, leftAltDown);
++            mCombiningAccent = result & KeyCharacterMap.COMBINING_ACCENT_MASK;
++        } else {
++            if (mCombiningAccent != 0) {
++                int combinedChar = KeyCharacterMap.getDeadChar(mCombiningAccent, result);
++                if (combinedChar > 0) result = combinedChar;
++                mCombiningAccent = 0;
++            }
++            inputCodePoint(event.getDeviceId(), result, controlDown, leftAltDown);
++        }
++
++        return true;
++    }
++
++    public void inputCodePoint(int eventSource, int codePoint, boolean controlDownFromEvent, boolean leftAltDownFromEvent) {
++        if (mTermSession == null) return;
++
++        final boolean controlDown = controlDownFromEvent || (mClient != null && mClient.readControlKey());
++        final boolean altDown = leftAltDownFromEvent || (mClient != null && mClient.readAltKey());
++
++        if (mClient != null && mClient.onCodePoint(codePoint, controlDown, mTermSession)) return;
++
++        if (controlDown) {
++            if (codePoint >= 'a' && codePoint <= 'z') {
++                codePoint = codePoint - 'a' + 1;
++            } else if (codePoint >= 'A' && codePoint <= 'Z') {
++                codePoint = codePoint - 'A' + 1;
++            } else if (codePoint == ' ' || codePoint == '2') {
++                codePoint = 0;
++            } else if (codePoint == '[' || codePoint == '3') {
++                codePoint = 27;
++            } else if (codePoint == '\\' || codePoint == '4') {
++                codePoint = 28;
++            } else if (codePoint == ']' || codePoint == '5') {
++                codePoint = 29;
++            } else if (codePoint == '^' || codePoint == '6') {
++                codePoint = 30;
++            } else if (codePoint == '_' || codePoint == '7' || codePoint == '/') {
++                codePoint = 31;
++            } else if (codePoint == '8') {
++                codePoint = 127;
++            }
++        }
++
++        if (codePoint > -1) {
++            if (eventSource > KEY_EVENT_SOURCE_SOFT_KEYBOARD) {
++                switch (codePoint) {
++                    case 0x02DC:
++                        codePoint = 0x007E;
++                        break;
++                    case 0x02CB:
++                        codePoint = 0x0060;
++                        break;
++                    case 0x02C6:
++                        codePoint = 0x005E;
++                        break;
++                    default:
++                        break;
++                }
++            }
++            mTermSession.writeCodePoint(altDown, codePoint);
++        }
++    }
++
++    public boolean handleKeyCode(int keyCode, int keyMod) {
++        if (mTermSession == null || mEmulator == null) return false;
++
++        boolean shiftDown = (keyMod & KeyHandler.KEYMOD_SHIFT) != 0;
++        if (shiftDown && (keyCode == KeyEvent.KEYCODE_PAGE_UP || keyCode == KeyEvent.KEYCODE_PAGE_DOWN)) {
++            mPendingFollowOutput = false;
++            mTextView.scrollBy(0, keyCode == KeyEvent.KEYCODE_PAGE_UP ? -mTextView.getHeight() : mTextView.getHeight());
++            return true;
++        }
++
++        String code = KeyHandler.getCode(keyCode, keyMod, mEmulator.isCursorKeysApplicationMode(), mEmulator.isKeypadApplicationMode());
++        if (code == null) return false;
++        mTermSession.write(code);
++        return true;
++    }
++
++    public int[] getColumnAndRow(MotionEvent event) {
++        Paint paint = mTextView.getPaint();
++        int cellWidth = Math.max(1, Math.round(paint.measureText("X")));
++        Paint.FontMetricsInt fontMetrics = paint.getFontMetricsInt();
++        int cellHeight = Math.max(1, fontMetrics.descent - fontMetrics.ascent);
++        int column = Math.max(0, (int) ((event.getX() - mTextView.getPaddingLeft()) / cellWidth));
++        int row = Math.max(0, (int) ((event.getY() - mTextView.getPaddingTop()) / cellHeight));
++        if (mEmulator != null) {
++            column = Math.min(column, Math.max(0, mEmulator.mColumns - 1));
++            row = Math.min(row, Math.max(0, mEmulator.mRows - 1));
++        }
++        return new int[]{column, row};
++    }
++
++    public boolean setTerminalCursorBlinkerRate(int blinkRate) {
++        boolean valid = blinkRate == 0 || (blinkRate >= TERMINAL_CURSOR_BLINK_RATE_MIN && blinkRate <= TERMINAL_CURSOR_BLINK_RATE_MAX);
++        mTerminalCursorBlinkerRate = valid ? blinkRate : 0;
++        if (mTerminalCursorBlinkerRate == 0)
++            stopTerminalCursorBlinker();
++        return valid;
++    }
++
++    public void setTerminalCursorBlinkerState(boolean start, boolean startOnlyIfCursorEnabled) {
++        stopTerminalCursorBlinker();
++        if (mEmulator == null) return;
++
++        mEmulator.setCursorBlinkingEnabled(false);
++        mCursorVisible = true;
++        mEmulator.setCursorBlinkState(true);
++
++        if (startOnlyIfCursorEnabled && !mEmulator.isCursorEnabled()) {
++            onScreenUpdated();
++            return;
++        }
++
++        if (!start || mTerminalCursorBlinkerRate == 0) {
++            onScreenUpdated();
++            return;
++        }
++
++        mEmulator.setCursorBlinkingEnabled(true);
++        mCursorBlinkerRunnable = new Runnable() {
++            @Override
++            public void run() {
++                if (mEmulator == null) return;
++                mCursorVisible = !mCursorVisible;
++                mEmulator.setCursorBlinkState(mCursorVisible);
++                onScreenUpdated();
++                mCursorBlinkerHandler.postDelayed(this, mTerminalCursorBlinkerRate);
++            }
++        };
++        onScreenUpdated();
++        mCursorBlinkerHandler.postDelayed(mCursorBlinkerRunnable, mTerminalCursorBlinkerRate);
++    }
++
++    private void stopTerminalCursorBlinker() {
++        if (mCursorBlinkerRunnable != null) {
++            mCursorBlinkerHandler.removeCallbacks(mCursorBlinkerRunnable);
++            mCursorBlinkerRunnable = null;
++        }
++    }
++
++    private CharSequence getScreenTextWithCursor() {
++        int activeTranscriptRows = mEmulator.getScreen().getActiveTranscriptRows();
++        int firstRow = -activeTranscriptRows;
++        int lastRow = mEmulator.mRows - 1;
++        int cursorRow = mEmulator.getCursorRow();
++        int cursorCol = mEmulator.getCursorCol();
++        int cursorStart = -1;
++
++        SpannableStringBuilder builder = new SpannableStringBuilder();
++        for (int row = firstRow; row <= lastRow; row++) {
++            String line = mEmulator.getScreen().getSelectedText(0, row, mEmulator.mColumns - 1, row, false);
++            if (row == cursorRow && shouldDrawCursor()) {
++                int lineStart = builder.length();
++                builder.append(line);
++                while (builder.length() - lineStart < cursorCol) {
++                    builder.append(' ');
++                }
++                cursorStart = Math.min(lineStart + cursorCol, builder.length());
++                if (cursorCol >= builder.length() - lineStart)
++                    builder.append(' ');
++            } else {
++                builder.append(line);
++            }
++
++            if (row < lastRow)
++                builder.append('\n');
++        }
++
++        if (cursorStart >= 0 && cursorStart < builder.length())
++            applyCursorSpan(builder, cursorStart);
++
++        return builder;
++    }
++
++    private boolean shouldDrawCursor() {
++        return mEmulator.shouldCursorBeVisible();
++    }
++
++    private void applyCursorSpan(SpannableStringBuilder builder, int cursorStart) {
++        int cursorEnd = Math.min(cursorStart + 1, builder.length());
++        switch (mEmulator.getCursorStyle()) {
++            case TerminalEmulator.TERMINAL_CURSOR_STYLE_UNDERLINE:
++                builder.setSpan(new UnderlineSpan(), cursorStart, cursorEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
++                break;
++            case TerminalEmulator.TERMINAL_CURSOR_STYLE_BAR:
++                builder.insert(cursorStart, "|");
++                builder.setSpan(new ForegroundColorSpan(mTextView.getCurrentTextColor()), cursorStart, cursorStart + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
++                break;
++            case TerminalEmulator.TERMINAL_CURSOR_STYLE_BLOCK:
++            default:
++                builder.setSpan(new BackgroundColorSpan(mTextView.getCurrentTextColor()), cursorStart, cursorEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
++                builder.setSpan(new ForegroundColorSpan(getCursorForegroundColor()), cursorStart, cursorEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
++                break;
++        }
++    }
++
++    private int getCursorForegroundColor() {
++        int color = mTextView.getCurrentTextColor();
++        int red = 255 - Color.red(color);
++        int green = 255 - Color.green(color);
++        int blue = 255 - Color.blue(color);
++        return Color.rgb(red, green, blue);
++    }
++}
+diff --git a/app/src/main/java/com/termux/app/terminal/TermuxTerminalViewClient.java b/app/src/main/java/com/termux/app/terminal/TermuxTerminalViewClient.java
+index a3d09d3d52..16057c9057 100644
+--- a/termux-app/app/src/main/java/com/termux/app/terminal/TermuxTerminalViewClient.java
++++ b/termux-app/app/src/main/java/com/termux/app/terminal/TermuxTerminalViewClient.java
+@@ -88,7 +88,7 @@ public TermuxActivity getActivity() {
+     public void onCreate() {
+         onReloadProperties();
+ 
+-        mActivity.getTerminalView().setTextSize(mActivity.getPreferences().getFontSize());
++        mActivity.getTerminalTextViewController().setTextSize(mActivity.getPreferences().getFontSize());
+         mActivity.getTerminalView().setKeepScreenOn(mActivity.getPreferences().shouldKeepScreenOn());
+     }
+ 
+@@ -99,7 +99,7 @@ public void onStart() {
+         // Set {@link TerminalView#TERMINAL_VIEW_KEY_LOGGING_ENABLED} value
+         // Also required if user changed the preference from {@link TermuxSettings} activity and returns
+         boolean isTerminalViewKeyLoggingEnabled = mActivity.getPreferences().isTerminalViewKeyLoggingEnabled();
+-        mActivity.getTerminalView().setIsTerminalViewKeyLoggingEnabled(isTerminalViewKeyLoggingEnabled);
++        mActivity.getTerminalTextViewController().setIsTerminalViewKeyLoggingEnabled(isTerminalViewKeyLoggingEnabled);
+ 
+         // Piggyback on the terminal view key logging toggle for now, should add a separate toggle in future
+         mActivity.getTermuxActivityRootView().setIsRootViewLoggingEnabled(isTerminalViewKeyLoggingEnabled);
+@@ -115,7 +115,7 @@ public void onResume() {
+ 
+         mTerminalCursorBlinkerStateAlreadySet = false;
+ 
+-        if (mActivity.getTerminalView().mEmulator != null) {
++        if (mActivity.getTerminalTextViewController().getEmulator() != null) {
+             // Start terminal cursor blinking if enabled
+             // If emulator is already set, then start blinker now, otherwise wait for onEmulatorSet()
+             // event to start it. This is needed since onEmulatorSet() may not be called after
+@@ -187,7 +187,7 @@ public void onSingleTapUp(MotionEvent e) {
+         TerminalEmulator term = mActivity.getCurrentSession().getEmulator();
+ 
+         if (mActivity.getProperties().shouldOpenTerminalTranscriptURLOnClick()) {
+-            int[] columnAndRow = mActivity.getTerminalView().getColumnAndRow(e, true);
++            int[] columnAndRow = mActivity.getTerminalTextViewController().getColumnAndRow(e);
+             String wordAtTap = term.getScreen().getWordAtLocation(columnAndRow[0], columnAndRow[1]);
+             LinkedHashSet<CharSequence> urlSet = TermuxUrlUtils.extractUrls(wordAtTap);
+ 
+@@ -292,7 +292,7 @@ public boolean onKeyDown(int keyCode, KeyEvent e, TerminalSession currentSession
+     public boolean onKeyUp(int keyCode, KeyEvent e) {
+         // If emulator is not set, like if bootstrap installation failed and user dismissed the error
+         // dialog, then just exit the activity, otherwise they will be stuck in a broken state.
+-        if (keyCode == KeyEvent.KEYCODE_BACK && mActivity.getTerminalView().mEmulator == null) {
++        if (keyCode == KeyEvent.KEYCODE_BACK && mActivity.getTerminalTextViewController().getEmulator() == null) {
+             mActivity.finishActivityIfNotFinishing();
+             return true;
+         }
+@@ -518,7 +518,7 @@ private void setSessionShortcuts() {
+ 
+     public void changeFontSize(boolean increase) {
+         mActivity.getPreferences().changeFontSize(increase);
+-        mActivity.getTerminalView().setTextSize(mActivity.getPreferences().getFontSize());
++        mActivity.getTerminalTextViewController().setTextSize(mActivity.getPreferences().getFontSize());
+     }
+ 
+ 
+@@ -659,13 +659,13 @@ private Runnable getShowSoftKeyboardRunnable() {
+     public void setTerminalCursorBlinkerState(boolean start) {
+         if (start) {
+             // If set/update the cursor blinking rate is successful, then enable cursor blinker
+-            if (mActivity.getTerminalView().setTerminalCursorBlinkerRate(mActivity.getProperties().getTerminalCursorBlinkRate()))
+-                mActivity.getTerminalView().setTerminalCursorBlinkerState(true, true);
++            if (mActivity.getTerminalTextViewController().setTerminalCursorBlinkerRate(mActivity.getProperties().getTerminalCursorBlinkRate()))
++                mActivity.getTerminalTextViewController().setTerminalCursorBlinkerState(true, true);
+             else
+                 Logger.logError(LOG_TAG,"Failed to start cursor blinker");
+         } else {
+             // Disable cursor blinker
+-            mActivity.getTerminalView().setTerminalCursorBlinkerState(false, true);
++            mActivity.getTerminalTextViewController().setTerminalCursorBlinkerState(false, true);
+         }
+     }
+ 
+@@ -685,7 +685,7 @@ public void shareSessionTranscript() {
+     }
+ 
+     public void shareSelectedText() {
+-        String selectedText = mActivity.getTerminalView().getStoredSelectedText();
++        String selectedText = mActivity.getTerminalTextViewController().getSelectedText();
+         if (DataUtils.isNullOrEmpty(selectedText)) return;
+         ShareUtils.shareText(mActivity, mActivity.getString(R.string.title_share_selected_text),
+             selectedText, mActivity.getString(R.string.title_share_selected_text_with));
+diff --git a/app/src/main/java/com/termux/app/terminal/io/TermuxTerminalExtraKeys.java b/app/src/main/java/com/termux/app/terminal/io/TermuxTerminalExtraKeys.java
+index a38e8cbbc8..add0aba675 100644
+--- a/termux-app/app/src/main/java/com/termux/app/terminal/io/TermuxTerminalExtraKeys.java
++++ b/termux-app/app/src/main/java/com/termux/app/terminal/io/TermuxTerminalExtraKeys.java
+@@ -9,6 +9,7 @@
+ 
+ import com.termux.app.TermuxActivity;
+ import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
++import com.termux.app.terminal.TermuxTerminalTextViewController;
+ import com.termux.app.terminal.TermuxTerminalViewClient;
+ import com.termux.shared.logger.Logger;
+ import com.termux.shared.termux.extrakeys.ExtraKeysConstants;
+@@ -16,7 +17,6 @@
+ import com.termux.shared.termux.settings.properties.TermuxPropertyConstants;
+ import com.termux.shared.termux.settings.properties.TermuxSharedProperties;
+ import com.termux.shared.termux.terminal.io.TerminalExtraKeys;
+-import com.termux.view.TerminalView;
+ 
+ import org.json.JSONException;
+ 
+@@ -30,10 +30,10 @@ public class TermuxTerminalExtraKeys extends TerminalExtraKeys {
+ 
+     private static final String LOG_TAG = "TermuxTerminalExtraKeys";
+ 
+-    public TermuxTerminalExtraKeys(TermuxActivity activity, @NonNull TerminalView terminalView,
++    public TermuxTerminalExtraKeys(TermuxActivity activity, @NonNull TermuxTerminalTextViewController terminalTextViewController,
+                                    TermuxTerminalViewClient termuxTerminalViewClient,
+                                    TermuxTerminalSessionActivityClient termuxTerminalSessionActivityClient) {
+-        super(terminalView);
++        super(terminalTextViewController);
+ 
+         mActivity = activity;
+         mTermuxTerminalViewClient = termuxTerminalViewClient;
+@@ -97,9 +97,9 @@ public void onTerminalExtraKeyButtonClick(View view, String key, boolean ctrlDow
+             if(mTermuxTerminalSessionActivityClient != null)
+                 mTermuxTerminalSessionActivityClient.onPasteTextFromClipboard(null);
+         }  else if ("SCROLL".equals(key)) {
+-            TerminalView terminalView = mTermuxTerminalViewClient.getActivity().getTerminalView();
+-            if (terminalView != null && terminalView.mEmulator != null)
+-                terminalView.mEmulator.toggleAutoScrollDisabled();
++            TermuxTerminalTextViewController terminalController = mTermuxTerminalViewClient.getActivity().getTerminalTextViewController();
++            if (terminalController != null && terminalController.getEmulator() != null)
++                terminalController.getEmulator().toggleAutoScrollDisabled();
+         } else {
+             super.onTerminalExtraKeyButtonClick(view, key, ctrlDown, altDown, shiftDown, fnDown);
+         }
+diff --git a/app/src/main/res/layout/activity_termux.xml b/app/src/main/res/layout/activity_termux.xml
+index 831ea7cfb8..99ef4b93bc 100644
+--- a/termux-app/app/src/main/res/layout/activity_termux.xml
++++ b/termux-app/app/src/main/res/layout/activity_termux.xml
+@@ -23,12 +23,17 @@
+             android:layout_above="@+id/terminal_toolbar_view_pager"
+             android:layout_height="match_parent">
+ 
+-            <com.termux.view.TerminalView
++            <TextView
+                 android:id="@+id/terminal_view"
+                 android:layout_width="match_parent"
+                 android:layout_height="match_parent"
+                 android:defaultFocusHighlightEnabled="false"
+                 android:focusableInTouchMode="true"
++                android:fontFamily="monospace"
++                android:gravity="start|top"
++                android:includeFontPadding="false"
++                android:singleLine="false"
++                android:textColor="?android:attr/textColorPrimary"
+                 android:scrollbarThumbVertical="@drawable/terminal_scroll_shape"
+                 android:scrollbars="vertical"
+                 tools:ignore="UnusedAttribute" />
+diff --git a/termux-shared/src/main/java/com/termux/shared/shell/command/environment/AndroidShellEnvironment.java b/termux-shared/src/main/java/com/termux/shared/shell/command/environment/AndroidShellEnvironment.java
+index 6e3bff4198..9eb99ca870 100644
+--- a/termux-app/termux-shared/src/main/java/com/termux/shared/shell/command/environment/AndroidShellEnvironment.java
++++ b/termux-app/termux-shared/src/main/java/com/termux/shared/shell/command/environment/AndroidShellEnvironment.java
+@@ -53,7 +53,7 @@ public HashMap<String, String> getEnvironment(@NonNull Context currentPackageCon
+         environment.put(ENV_TMPDIR, "/data/local/tmp");
+ 
+         environment.put(ENV_COLORTERM, "truecolor");
+-        environment.put(ENV_TERM, "xterm-256color");
++        environment.put(ENV_TERM, "dumb");
+ 
+         ShellEnvironmentUtils.putToEnvIfInSystemEnv(environment, "ANDROID_ASSETS");
+         ShellEnvironmentUtils.putToEnvIfInSystemEnv(environment, "ANDROID_DATA");
+diff --git a/termux-shared/src/main/java/com/termux/shared/termux/terminal/io/TerminalExtraKeys.java b/termux-shared/src/main/java/com/termux/shared/termux/terminal/io/TerminalExtraKeys.java
+index 8aa77772f8..7b45aaee67 100644
+--- a/termux-app/termux-shared/src/main/java/com/termux/shared/termux/terminal/io/TerminalExtraKeys.java
++++ b/termux-app/termux-shared/src/main/java/com/termux/shared/termux/terminal/io/TerminalExtraKeys.java
+@@ -1,6 +1,7 @@
+ package com.termux.shared.termux.terminal.io;
+ 
+ import android.os.Build;
++import android.view.KeyCharacterMap;
+ import android.view.KeyEvent;
+ import android.view.View;
+ 
+@@ -11,17 +12,26 @@
+ import com.termux.shared.termux.extrakeys.ExtraKeysView;
+ import com.termux.shared.termux.extrakeys.SpecialButton;
+ import com.termux.terminal.TerminalSession;
+-import com.termux.view.TerminalView;
+ 
+ import static com.termux.shared.termux.extrakeys.ExtraKeysConstants.PRIMARY_KEY_CODES_FOR_STRINGS;
+ 
+ 
+ public class TerminalExtraKeys implements ExtraKeysView.IExtraKeysView {
+ 
+-    private final TerminalView mTerminalView;
++    public interface TerminalInput {
++        int KEY_EVENT_SOURCE_VIRTUAL_KEYBOARD = KeyCharacterMap.VIRTUAL_KEYBOARD;
+ 
+-    public TerminalExtraKeys(@NonNull TerminalView terminalView) {
+-        mTerminalView = terminalView;
++        boolean onKeyDown(int keyCode, KeyEvent keyEvent);
++
++        void inputCodePoint(int eventSource, int codePoint, boolean ctrlDown, boolean altDown);
++
++        TerminalSession getCurrentSession();
++    }
++
++    private final TerminalInput mTerminalInput;
++
++    public TerminalExtraKeys(@NonNull TerminalInput terminalInput) {
++        mTerminalInput = terminalInput;
+     }
+ 
+     @Override
+@@ -62,15 +72,15 @@ protected void onTerminalExtraKeyButtonClick(View view, String key, boolean ctrl
+             if (fnDown) metaState |= KeyEvent.META_FUNCTION_ON;
+ 
+             KeyEvent keyEvent = new KeyEvent(0, 0, KeyEvent.ACTION_UP, keyCode, 0, metaState);
+-            mTerminalView.onKeyDown(keyCode, keyEvent);
++            mTerminalInput.onKeyDown(keyCode, keyEvent);
+         } else {
+             // not a control char
+             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                 key.codePoints().forEach(codePoint -> {
+-                    mTerminalView.inputCodePoint(TerminalView.KEY_EVENT_SOURCE_VIRTUAL_KEYBOARD, codePoint, ctrlDown, altDown);
++                    mTerminalInput.inputCodePoint(TerminalInput.KEY_EVENT_SOURCE_VIRTUAL_KEYBOARD, codePoint, ctrlDown, altDown);
+                 });
+             } else {
+-                TerminalSession session = mTerminalView.getCurrentSession();
++                TerminalSession session = mTerminalInput.getCurrentSession();
+                 if (session != null && key.length() > 0)
+                     session.write(key);
+             }
