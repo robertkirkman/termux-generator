@@ -144,7 +144,6 @@ build_termux_x11() {
     pushd termux-apps-main/termux-x11
 
     ./gradlew assembleDebug
-    ./build_termux_package
 
     popd
 }
@@ -160,7 +159,7 @@ move_termux_x11_deb() {
     fi
 
     mkdir -p "$termux_x11_dest"
-    mv lorie-app/build/outputs/apk/debug/*.deb "$termux_x11_dest/termux-x11-nightly_all.deb"
+    mv shell-loader/build/outputs/companion/*.deb "$termux_x11_dest/termux-x11-nightly_all.deb"
 
     popd
 }
@@ -302,7 +301,7 @@ move_apks() {
     fi
 
     if [ -z "${DISABLE_X11}" ]; then
-        for apk in termux-apps-main/termux-x11/lorie-app/build/outputs/apk/debug/*.apk; do
+        for apk in termux-apps-main/termux-x11/lorie-app/build/outputs/apk/*/debug/*.apk; do
             mv "$apk" "$TERMUX_APP__PACKAGE_NAME-$TERMUX_APP_TYPE-$(basename $apk)"
         done
     fi
