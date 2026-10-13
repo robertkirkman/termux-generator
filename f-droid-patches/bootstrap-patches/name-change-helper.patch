@@ -1,3 +1,14 @@
+--- a/packages/proot-distro/build.sh
++++ b/packages/proot-distro/build.sh
+@@ -19,6 +19,8 @@ TERMUX_PKG_AUTO_UPDATE=true
+ 
+ termux_step_pre_configure() {
+ 	termux_setup_python_pip
++	. "$TERMUX_SCRIPTDIR/scripts/termux_generator_utils.sh"
++	replace_termux_user_path "$TERMUX_PKG_SRCDIR" "$TERMUX_APP__USER_PATH"
+ }
+ 
+ termux_step_create_debscripts() {
 --- a/packages/termux-tools/build.sh
 +++ b/packages/termux-tools/build.sh
 @@ -21,6 +21,16 @@ TERMUX_PKG_DEPENDS="bzip2, coreutils, curl, dash, diffutils, findutils, gawk, gr
