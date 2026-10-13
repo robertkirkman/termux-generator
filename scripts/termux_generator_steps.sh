@@ -97,6 +97,12 @@ patch_bootstraps() {
         replace_termux_name termux-packages-main "$TERMUX_APP__PACKAGE_NAME"
     fi
 
+	if [[ "$TERMUX_APP__USER_PATH" != "/data/data" ]]; then
+		replace_termux_user_path termux-packages-main "$TERMUX_APP__USER_PATH"
+
+		echo "TERMUX_APP__USER_PATH=$TERMUX_APP__USER_PATH" >> termux-packages-main/scripts/properties.sh
+	fi
+
     apply_patches "$TERMUX_APP_TYPE-patches/bootstrap-patches" termux-packages-main
 
     portable_sed_i -e "s|termux-package-builder|$TERMUX_GENERATOR_CONTAINER_NAME|g" termux-packages-main/scripts/run-docker.sh
@@ -107,8 +113,8 @@ patch_bootstraps() {
         cat <<- EOF >> "$bashrc"
             if [ ! -f "\$HOME/.termux/boot/start-sshd" ]; then
                 mkdir -p "\$HOME/.termux/boot"
-                echo '#!/data/data/$TERMUX_APP__PACKAGE_NAME/files/usr/bin/sh' > "\$HOME/.termux/boot/start-sshd"
-                echo '. /data/data/$TERMUX_APP__PACKAGE_NAME/files/usr/etc/bash.bashrc' >> "\$HOME/.termux/boot/start-sshd"
+                echo '#!$TERMUX_APP__USER_PATH/$TERMUX_APP__PACKAGE_NAME/files/usr/bin/sh' > "\$HOME/.termux/boot/start-sshd"
+                echo '. $TERMUX_APP__USER_PATH/$TERMUX_APP__PACKAGE_NAME/files/usr/etc/bash.bashrc' >> "\$HOME/.termux/boot/start-sshd"
                 chmod +x "\$HOME/.termux/boot/start-sshd"
             fi
             if [ ! -f "\$HOME/.termux_authinfo" ]; then
@@ -131,13 +137,21 @@ EOF
 patch_apps() {
     apply_patches "$TERMUX_APP_TYPE-patches/app-patches" termux-apps-main
 
-    if [[ "$TERMUX_APP__PACKAGE_NAME" == "com.termux" ]]; then
-        return
+	if [[ "$TERMUX_APP__USER_PATH" != "/data/data" ]]; then
+		replace_termux_user_path termux-apps-main "$TERMUX_APP__USER_PATH"
+
+        portable_sed_i -e "s|\!PackageUtils.isCurrentUserThePrimaryUser(activity)|false|g" \
+			termux-apps-main/termux-app/app/src/main/java/com/termux/app/TermuxInstaller.java
+
+		portable_sed_i -e "s|data/data|${TERMUX_APP__USER_PATH:1}|g" \
+			termux-apps-main/termux-x11/shell-loader/companion-package.gradle
+	fi
+
+    if [[ "$TERMUX_APP__PACKAGE_NAME" != "com.termux" ]]; then
+		replace_termux_name termux-apps-main "$TERMUX_APP__PACKAGE_NAME"
+
+		migrate_termux_folder_tree termux-apps-main "$TERMUX_APP__PACKAGE_NAME"
     fi
-
-    replace_termux_name termux-apps-main "$TERMUX_APP__PACKAGE_NAME"
-
-    migrate_termux_folder_tree termux-apps-main "$TERMUX_APP__PACKAGE_NAME"
 }
 
 build_termux_x11() {
@@ -202,7 +216,7 @@ build_bootstraps() {
     # pointed to /data/data/com.termux/aosp by default
     # https://github.com/termux/termux-packages/blob/650907de80114cc53b20b181161f993e3ad0dfad/scripts/setup-ubuntu.sh#L371
     # needed for building pypy and similar packages
-    scripts/run-docker.sh sudo ln -sf "/data/data/$TERMUX_APP__PACKAGE_NAME/aosp" /system
+    scripts/run-docker.sh sudo ln -sf "$TERMUX_APP__USER_PATH/$TERMUX_APP__PACKAGE_NAME/aosp" /system
 
     if [[ "$TERMUX_APP_TYPE" == "f-droid" && "$TERMUX_APP__PACKAGE_NAME" == "com.retired64.termux" && $bootstrap_architectures != *","* ]]; then
         build_all_packages "$bootstrap_architectures"
@@ -210,6 +224,7 @@ build_bootstraps() {
 
     rm -rf .github/workflows/*
     sed -e "s|@TERMUX_APP__PACKAGE_NAME@|$TERMUX_APP__PACKAGE_NAME|g" \
+        -e "s|@TERMUX_APP__USER_PATH@|$TERMUX_APP__USER_PATH|g" \
         -e "s|@BOOTSTRAP_BUILD_COMMAND@|scripts/$bootstrap_script $bootstrap_script_args|g" \
         "$TERMUX_GENERATOR_HOME/scripts/build-bootstraps.yml.in" \
         > .github/workflows/build-bootstraps.yml

@@ -6,6 +6,7 @@ cd "$(realpath "$(dirname "$0")")"
 
 TERMUX_GENERATOR_HOME="$(pwd)"
 TERMUX_APP__PACKAGE_NAME="com.termux"
+TERMUX_APP__USER_PATH="/data/data"
 TERMUX_APP_TYPE="f-droid"
 DO_NOT_CLEAN=""
 TERMUX_GENERATOR_PLUGIN=""
@@ -40,6 +41,7 @@ show_usage() {
     echo " -h, --help                       Show this help."
     echo " -a, --add PKG_LIST               Include additional packages in bootstrap archive."
     echo " -n, --name APP_NAME              Specify TERMUX_APP__PACKAGE_NAME name."
+    echo " -u, --user-path USER_PATH        Specify TERMUX_APP__USER_PATH path."
     echo " -t, --type APP_TYPE              Specify the Termux project to fork [f-droid, play-store]. Defaults to f-droid."
     echo " --architectures ARCH_LIST        Specify the bootstrap architectures to include in a comma-separated list."
     echo " -p, --plugin PLUGIN              Specify a plugin from the plugins folder to apply during building."
@@ -105,6 +107,16 @@ while (($# > 0)); do
                 shift 1
             else
                 echo "[!] Option '--name' requires an argument."
+                show_usage
+                exit 1
+            fi
+            ;;
+        -u|--user-path)
+            if [ $# -gt 1 ] && [ -n "$2" ] && [[ $2 != -* ]]; then
+                TERMUX_APP__USER_PATH="$2"
+                shift 1
+            else
+                echo "[!] Option '--user-path' requires an argument."
                 show_usage
                 exit 1
             fi

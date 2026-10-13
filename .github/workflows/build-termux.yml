@@ -9,6 +9,9 @@ on:
       name:
         description: "Specify TERMUX_APP__PACKAGE_NAME name."
         required: false
+      user-path:
+        description: "Specify TERMUX_APP__USER_PATH path."
+        required: false
       type:
         description: "Specify the Termux project to fork [f-droid, play-store]. Defaults to f-droid."
         required: false
@@ -90,6 +93,9 @@ jobs:
       - name: Set --name
         if: "${{ github.event.inputs.name != '' }}"
         run: echo "TERMUX_APP__PACKAGE_NAME=--name ${{ github.event.inputs.name }}" >> $GITHUB_ENV
+      - name: Set --user-path
+        if: "${{ github.event.inputs.user-path != '' }}"
+        run: echo "TERMUX_APP__PACKAGE_NAME=--user-path ${{ github.event.inputs.user-path }}" >> $GITHUB_ENV
       - name: Set --type
         if: "${{ github.event.inputs.type != '' }}"
         run: echo "TERMUX_APP_TYPE=--type ${{ github.event.inputs.type }}" >> $GITHUB_ENV

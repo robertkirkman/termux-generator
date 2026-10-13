@@ -1,6 +1,6 @@
 # termux-generator
 
-This script builds a [termux/termux-app](https://github.com/termux/termux-app) or [termux-play-store/termux-apps/termux-app](https://github.com/termux-play-store/termux-apps/tree/main/termux-app) from source, but allows changing the package name from `com.termux` to anything else with a single command.
+This script builds a [termux/termux-app](https://github.com/termux/termux-app) or [termux-play-store/termux-apps/termux-app](https://github.com/termux-play-store/termux-apps/tree/main/termux-app) from source, but allows changing the package name from `com.termux` to anything else with a single command. It also allows changing the installation destination from `/data/data` to anything else that might be required by secondary or guest Android user accounts, like `/data/user/10`.
 
 ## Building Termux in GitHub Actions
 
@@ -77,7 +77,7 @@ sudo reboot
 
 ### Using termux-generator locally
 
-#### Example: build Termux with the location changed and some popular packages preinstalled
+#### Example: build Termux with the application ID changed and some popular packages preinstalled
 
 > [!IMPORTANT]
 > Best-case typical time to compile the below example with added packages and only the aarch64 bootstrap: **3 hours**
@@ -93,6 +93,15 @@ cd termux-generator
 > [!IMPORTANT]
 > Running the command a second time will delete all the modified files and start over. Use `--dirty` if you are troubleshooting.
 
+#### Example: build Termux with the user account installation path changed and some popular packages preinstalled
+
+```bash
+git clone https://github.com/robertkirkman/termux-generator.git
+cd termux-generator
+./build-termux.sh --user-path /data/user/10 \
+    --add clang,make,pkg-config,autoconf,automake,bc,bison,cmake,flex,libtool,m4,git,python-pip,proot-distro \
+    --architectures aarch64
+```
 
 #### Example: build Termux with SSH server enabled by default and install it through ADB
 

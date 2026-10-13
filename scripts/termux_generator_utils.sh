@@ -30,7 +30,7 @@ replace_termux_name() {
     local replacement_name_slash="$(echo "$replacement_name" | tr . /)"
 
     pushd "$targetdir"
-    
+
     # Nur Textdateien bearbeiten, um Fehler zu vermeiden
     local file
     find . -type f -exec file {} + | grep "text" | cut -d: -f1 | while read -r file; do
@@ -40,6 +40,23 @@ replace_termux_name() {
                        -e "s|com\.termux|$replacement_name|g" \
                        -e "s|com_termux|$replacement_name_underscore|g" \
                        -e '/http/!s|com/termux|'$replacement_name_slash'|g' "$file"
+    done
+
+    popd
+}
+
+replace_termux_user_path() {
+    if [[ "$TERMUX_APP__USER_PATH" == "/data/data" ]]; then
+        return
+    fi
+    local targetdir="$1"
+    local replacement_path="$2"
+
+    pushd "$targetdir"
+
+    local file
+    find . -type f -exec file {} + | grep "text" | cut -d: -f1 | while read -r file; do
+        portable_sed_i -e "s|/data/data|$replacement_path|g" "$file"
     done
 
     popd

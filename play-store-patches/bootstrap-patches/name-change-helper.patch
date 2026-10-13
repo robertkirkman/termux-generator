@@ -1,11 +1,12 @@
 --- a/packages/termux-tools/build.sh
 +++ b/packages/termux-tools/build.sh
-@@ -20,6 +20,15 @@ TERMUX_PKG_DEPENDS="coreutils, curl, dash, diffutils, findutils, gawk, grep, les
+@@ -20,6 +20,16 @@ TERMUX_PKG_DEPENDS="coreutils, curl, dash, diffutils, findutils, gawk, grep, les
  TERMUX_PKG_RECOMMENDS="ed, dos2unix, inetutils, net-tools, patch, unzip"
  
  termux_step_pre_configure() {
 +	. "$TERMUX_SCRIPTDIR/scripts/termux_generator_utils.sh"
 +   replace_termux_name "$TERMUX_PKG_SRCDIR" "$TERMUX_APP__PACKAGE_NAME"
++   replace_termux_user_path "$TERMUX_PKG_SRCDIR" "$TERMUX_APP__USER_PATH"
 +	echo "Welcome to $TERMUX_APP__PACKAGE_NAME!
 +This is a fork of \"Google Play\" Termux!
 +Do not report issues with this build upstream!

@@ -14,7 +14,7 @@ jobs:
       - name: Build bootstraps
         run: |
           scripts/free-space.sh
-          scripts/run-docker.sh sudo ln -sf "/data/data/@TERMUX_APP__PACKAGE_NAME@/aosp" /system
+          scripts/run-docker.sh sudo ln -sf "@TERMUX_APP__USER_PATH@/@TERMUX_APP__PACKAGE_NAME@/aosp" /system
           scripts/run-docker.sh @BOOTSTRAP_BUILD_COMMAND@
       - name: Upload artifacts
         uses: actions/upload-artifact@v4.6.0
