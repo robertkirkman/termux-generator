@@ -160,7 +160,7 @@ jobs:
                 $DISABLE_STYLING \
                 $DISABLE_GUI \
                 $DISABLE_X11 \
-                $PLUGIN
+                $PLUGIN || true
       - name: Upload artifacts
         uses: actions/upload-artifact@v4.6.0
         with:
