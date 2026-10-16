@@ -62,3 +62,77 @@ index 0000000..0250f2e
 + 
 + if (!TERMUX_SCRIPTDIR) {
 +   throw new Error("TERMUX_PKG_CACHEDIR environment variable is not defined");
+diff --git a/packages/kew/build.sh b/packages/kew/build.sh
+index accef3e..78071bf 100644
+--- a/packages/kew/build.sh
++++ b/packages/kew/build.sh
+@@ -12,9 +12,10 @@ TERMUX_PKG_SUGGESTS="chroma-visualizer"
+ TERMUX_PKG_EXTRA_MAKE_ARGS="ARCH=$TERMUX_ARCH"
+ 
+ termux_step_post_get_source() {
+-	local original_prefix_component_one="/data/data/com."
++	local original_prefix_component_one_part_one="/data"
++	local original_prefix_component_one_part_two="/data/com."
+ 	local original_prefix_component_two="termux/files/usr"
+-	local original_prefix="${original_prefix_component_one}${original_prefix_component_two}"
++	local original_prefix="${original_prefix_component_one_part_one}${original_prefix_component_one_part_two}${original_prefix_component_two}"
+ 	find "$TERMUX_PKG_SRCDIR" -type f -print0 | \
+ 		xargs -0 sed -i -e "s%${original_prefix}%\@HARDCODED_TERMUX_PREFIX\@%g"
+ }
+--- a/packages/rust/build.sh
++++ b/packages/rust/build.sh
+@@ -87,28 +87,44 @@ termux_step_pre_configure() {
+ 		patch --silent -p1
+ 
+ 	# assist with downstream patch methods that bulk-replace
+-	# string 'com.termux' throughout the repository
+-	local original_prefix_component_one="/data/data/com."
++	# strings 'com.termux' or '/data/user/10' throughout the repository
++	local original_prefix_component_one_part_one="/data"
++	local original_prefix_component_one_part_two="/data/com."
+ 	local original_prefix_component_two="termux/files/usr"
+-	local original_prefix="${original_prefix_component_one}${original_prefix_component_two}"
++	local original_prefix="${original_prefix_component_one_part_one}${original_prefix_component_one_part_two}${original_prefix_component_two}"
+ 	if [[ "$TERMUX_PREFIX" != "$original_prefix" ]]; then
+ 		local patch="$TERMUX_PKG_BUILDER_DIR/force-allow-edit-vendor.diff"
+ 		echo "Applying patch: $(basename "$patch")"
+ 		patch --silent -p1 <"$patch"
+ 
+ 		local crate=openssl-probe
+-		local crate_src_dir="$(realpath "$(find "$TERMUX_PKG_SRCDIR/vendor" -name "$crate"'*' | sort | tail -n1)")"
+-		local crate_dest_dir="$crate_src_dir-custom-termux-prefix"
+-		cp -r "$crate_src_dir" "$crate_dest_dir"
+-
+-		echo "Replacing '$original_prefix' with '$TERMUX_PREFIX' in '$crate_dest_dir/src/lib.rs'"
+-		sed -i -e "s|$original_prefix|$TERMUX_PREFIX|g" "$crate_dest_dir/src/lib.rs"
++		local crate_versions=()
++		local line
++		while read line; do
++			line="$(echo "$line" | perl -pe '($_)=/([0-9]+([.][0-9]+)+)/')"
++			crate_versions+=( "$line" )
++		done < <(find "$TERMUX_PKG_SRCDIR/vendor" -name "$crate"'*')
++
++		for crate_version in "${crate_versions[@]}"; do
++			local crate_src_dir="$TERMUX_PKG_SRCDIR/vendor/$crate-$crate_version"
++			local crate_dest_dir="$crate_src_dir-custom-termux-prefix"
++			cp -r "$crate_src_dir" "$crate_dest_dir"
++
++			echo "Replacing '$original_prefix' with '$TERMUX_PREFIX' in '$crate_dest_dir/src/lib.rs'"
++			sed -i -e "s|$original_prefix|$TERMUX_PREFIX|g" "$crate_dest_dir/src/lib.rs"
++			# sed -i -e "s|$original_prefix|$TERMUX_PREFIX|g" "$crate_src_dir/src/lib.rs"
++			# /usr/bin/sudo chattr +i "$crate_src_dir/src/lib.rs"
++		done
+ 
+ 		local dir
+ 		for dir in "$TERMUX_PKG_SRCDIR"/{,src/tools/cargo,src/tools/miri}; do
+ 			echo '' >>"$dir/Cargo.toml"
+ 			echo '[patch.crates-io]' >>"$dir/Cargo.toml"
+-			echo "$crate = { path = \"${crate_dest_dir}\" }" >>"$dir/Cargo.toml"
++			for crate_version in "${crate_versions[@]}"; do
++				local crate_src_dir="$TERMUX_PKG_SRCDIR/vendor/$crate-$crate_version"
++				local crate_dest_dir="$crate_src_dir-custom-termux-prefix"
++				echo "${crate}_${crate_version//./} = { package = \"$crate\", version = \"${crate_version}\", path = \"${crate_dest_dir}\" }" >>"$dir/Cargo.toml"
++			done
+ 		done
+ 	fi
+ 

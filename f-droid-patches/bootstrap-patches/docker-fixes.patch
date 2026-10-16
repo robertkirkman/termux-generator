@@ -44,16 +44,24 @@
  
  load_apparmor_profile() {
         local profile_path="$1"
+@@ -195,6 +196,7 @@ if ! $SUDO docker container inspect $CONTAINER_NAME > /dev/null 2>&1; then
+ 		--init \
+ 		--name $CONTAINER_NAME \
+ 		--volume $VOLUME \
++		--cap-add LINUX_IMMUTABLE \
+ 		$SEC_OPT \
+ 		--tty \
+ 		$TERMUX_DOCKER_RUN_EXTRA_ARGS \
 +++ a/scripts/free-space.sh
 +++ b/scripts/free-space.sh
-@@ -16,7 +16,7 @@ else
+@@ -17,7 +17,7 @@ else
  		dpkg -l |
  			grep '^ii' |
  			awk '{ print $2 }' |
--			grep -P '(mecab|linux-azure-tools-|aspnetcore|liblldb-|netstandard-|llvm|clang|gcc-12|gcc-13|gcc-14|gcc-15|cpp-|g\+\+-|temurin-|gfortran-|mysql-|google-cloud-cli|postgresql-|cabal-|dotnet-|ghc-|mongodb-|libmono|mesa-|ant|liblua|python3|grub2-|grub-|shim-signed)'
-+			grep -P '(mecab|linux-azure-tools-|aspnetcore|liblldb-|netstandard-|llvm|clang|gcc-12|gcc-13|gcc-14|gcc-15|cpp-|g\+\+-|gfortran-|mysql-|google-cloud-cli|postgresql-|cabal-|dotnet-|ghc-|mongodb-|libmono|mesa-|ant|liblua|python3|grub2-|grub-|shim-signed)'
+-			grep -P '(ant|aspnetcore|cabal-|clang|cpp-|dotnet-|g\+\+-|gcc-12|gcc-13|gcc-14|gcc-15|gfortran-|ghc-|google-cloud-cli|grub-|grub2-|liblldb-|liblua|libmono|llvm|mecab|mesa-|mongodb-|mysql-|netstandard-|postgresql-|python3|ruby-|shim-signed|temurin-)'
++			grep -P '(ant|aspnetcore|cabal-|clang|cpp-|dotnet-|g\+\+-|gcc-12|gcc-13|gcc-14|gcc-15|gfortran-|ghc-|google-cloud-cli|grub-|grub2-|liblldb-|liblua|libmono|llvm|mecab|mesa-|mongodb-|mysql-|netstandard-|postgresql-|python3|ruby-|shim-signed)'
  	)
- 
+
  	sudo apt purge -yq \
 @@ -41,7 +41,10 @@ else
  	sudo rm -rf /opt/ghc /opt/az /opt/hostedtoolcache /opt/actionarchivecache /opt/runner-cache
