@@ -81,13 +81,8 @@ index accef3e..78071bf 100644
  }
 --- a/packages/rust/build.sh
 +++ b/packages/rust/build.sh
-@@ -87,28 +87,44 @@ termux_step_pre_configure() {
- 		patch --silent -p1
- 
- 	# assist with downstream patch methods that bulk-replace
--	# string 'com.termux' throughout the repository
+@@ -91,24 +87,40 @@ termux_step_pre_configure() {
 -	local original_prefix_component_one="/data/data/com."
-+	# strings 'com.termux' or '/data/user/10' throughout the repository
 +	local original_prefix_component_one_part_one="/data"
 +	local original_prefix_component_one_part_two="/data/com."
  	local original_prefix_component_two="termux/files/usr"
