@@ -97,7 +97,11 @@ patch_bootstraps() {
         replace_termux_name termux-packages-main "$TERMUX_APP__PACKAGE_NAME"
     fi
 
-    apply_patches "$TERMUX_APP_TYPE-patches/bootstrap-patches" termux-packages-main
+    apply_patches "$TERMUX_APP_TYPE-patches/bootstrap-patches" termux-packages-main || true
+
+	cat termux-packages-main/packages/rust/build.sh.rej
+
+	exit 1
 
 	if [[ "$TERMUX_APP__USER_PATH" != "/data/data" ]]; then
 		replace_termux_user_path termux-packages-main "$TERMUX_APP__USER_PATH"
